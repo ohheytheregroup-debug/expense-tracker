@@ -100,6 +100,23 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: r.ok, status: r.status });
     }
 
+    if (body.action === 'sync-sheet') {
+      try {
+        const e = body.entry;
+        const date = e.date || '';
+        const month = date ? new Date(date).toLocaleString('en-US', { month: 'long', year: 'numeric' }) : new Date().toLocaleString('en-US', { month: 'long', year: 'numeric' });
+        const token = await getGoogleToken();
+        await ensureSheet(token, SHEET_ID, month);
+        const row = [
+          e.date||'', e.company||'', e.tin||'', e.address||'',
+          e.amount||0, e.discount||0, e.vat_type||'', e.vatable_sales||0, e.vat_amount||0,
+          e.category||'', e.payment||'', e.owner||'', e.uploader||'', e.notes||'', e.saved_at||''
+        ];
+        await appendToSheet(token, SHEET_ID, month, row);
+        return res.status(200).json({ success: true });
+      } catch(err) { return res.status(200).json({ success: false, detail: err.message }); }
+    }
+
     if (body.action === 'load') {
       const r = await fetch(`${SUPABASE_URL}/rest/v1/expenses?order=id.desc&limit=1000`, {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
