@@ -310,13 +310,20 @@
 <script>
   let entries = [], selectedCat = '', selectedPay = '', selectedOwner = '', currentImages = [];
 
-  function load() {
-    try { entries = JSON.parse(localStorage.getItem('xpense_entries') || '[]'); } catch(e) { entries = []; }
+  async function load() {
     try {
       document.getElementById('sheetUrl').value = localStorage.getItem('xpense_sheetUrl') || '';
       document.getElementById('uploaderName').value = localStorage.getItem('xpense_uploader') || '';
     } catch(e) {}
     document.getElementById('topbarMonth').textContent = new Date().toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
+    try {
+      const r = await fetch('/api/claude', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ action: 'load' }) });
+      const data = await r.json();
+      if (data.success && Array.isArray(data.entries)) {
+        entries = data.entries.map(e => ({ id: e.id, company: e.company, tin: e.tin, address: e.address, amount: e.amount, date: e.date, or: e.or_number, notes: e.notes, category: e.category, payment: e.payment, owner: e.owner, officialReceipt: e.official_receipt, repaid: e.repaid, uploader: e.uploader, savedAt: e.saved_at }));
+        renderEntries(); updateStats();
+      }
+    } catch(err) { console.log('Supabase load error:', err); }
   }
 
   function saveSettings() {
@@ -533,7 +540,8 @@
     };
     entries.unshift(entry);
     try { localStorage.setItem('xpense_entries', JSON.stringify(entries)); } catch(e) {}
-    showToast('Expense saved!');
+    showToast('Saving...');
+    fetch('/api/claude', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ action: 'save', entry: { id: entry.id, company: entry.company, tin: entry.tin, address: entry.address, amount: entry.amount, date: entry.date, or_number: entry.or, notes: entry.notes, category: entry.category, payment: entry.payment, owner: entry.owner, official_receipt: entry.officialReceipt, repaid: false, uploader: entry.uploader, saved_at: entry.savedAt } }) }).then(() => showToast('Expense saved! Synced ✓')).catch(() => showToast('Saved locally only.'));
     resetForm();
   }
 
@@ -588,7 +596,8 @@
     entry.repaid = !entry.repaid;
     try { localStorage.setItem('xpense_entries', JSON.stringify(entries)); } catch(e) {}
     renderEntries(); updateStats();
-    showToast(entry.repaid ? 'Loan marked as repaid — excluded from totals.' : 'Loan restored to totals.');
+    showToast(entry.repaid ? 'Loan marked as repaid.' : 'Loan restored to totals.');
+    fetch('/api/claude', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ action: 'update', id: entry.id, fields: { repaid: entry.repaid } }) });
   }
 
   function deleteEntry(id) {
@@ -596,6 +605,7 @@
     entries = entries.filter(e => e.id !== id);
     try { localStorage.setItem('xpense_entries', JSON.stringify(entries)); } catch(e) {}
     renderEntries(); updateStats(); showToast('Entry deleted.');
+    fetch('/api/claude', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ action: 'delete', id: id }) });
   }
 
   function updateStats() {
