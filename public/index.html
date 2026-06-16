@@ -504,12 +504,18 @@
 <div class="toast" id="toast"></div>
 
 <script>
-  let entries = [], selectedCat = '', selectedPay = '', currentImages = [];
+  let entries = [];
+  let selectedCat = '';
+  let selectedPay = '';
 
   function load() {
     try { entries = JSON.parse(localStorage.getItem('xpense_entries') || '[]'); } catch(e) { entries = []; }
-    try { document.getElementById('sheetUrl').value = localStorage.getItem('xpense_sheetUrl') || ''; document.getElementById('uploaderName').value = localStorage.getItem('xpense_uploader') || ''; } catch(e) {}
-    document.getElementById('topbarMonth').textContent = new Date().toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
+    try {
+      document.getElementById('sheetUrl').value = localStorage.getItem('xpense_sheetUrl') || '';
+      document.getElementById('uploaderName').value = localStorage.getItem('xpense_uploader') || '';
+    } catch(e) {}
+    const now = new Date();
+    document.getElementById('topbarMonth').textContent = now.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
   }
 
   function saveSettings() {
@@ -526,76 +532,112 @@
     if (name === 'entries') { renderEntries(); updateStats(); }
   }
 
+  let currentImages = []; // array of {dataUrl, mimeType}
+
   function handleFiles(e) {
     const files = Array.from(e.target.files);
     if (!files.length) return;
+
     const readers = files.map(file => new Promise(resolve => {
       const reader = new FileReader();
-      reader.onload = ev => resolve({ dataUrl: ev.target.result, mimeType: file.type || 'image/jpeg' });
+      reader.onload = ev => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          // Resize to max 1200px on longest side to keep payload small
+          const MAX = 1200;
+          let w = img.width, h = img.height;
+          if (w > MAX || h > MAX) {
+            if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+            else { w = Math.round(w * MAX / h); h = MAX; }
+          }
+          canvas.width = w;
+          canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          // Use 0.7 quality JPEG to stay well under 4MB limit
+          const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.7);
+          resolve({ dataUrl: jpegDataUrl, mimeType: 'image/jpeg' });
+        };
+        img.onerror = () => resolve({ dataUrl: ev.target.result, mimeType: 'image/jpeg' });
+        img.src = ev.target.result;
+      };
       reader.readAsDataURL(file);
     }));
+
     Promise.all(readers).then(results => {
       currentImages = [...currentImages, ...results];
       renderPreviews();
       document.getElementById('clarityAlert').className = 'clarity-alert';
       document.getElementById('formSection').style.display = 'none';
       document.getElementById('scanBtn').disabled = true;
-      document.getElementById('scanBtn').innerHTML = '<div class="spinner"></div> Checking photo quality...';
+      document.getElementById('scanBtn').innerHTML = '<div class="spinner"></div>&nbsp; Checking photo quality...';
       checkClarity();
     });
   }
 
   function renderPreviews() {
+    const strip = document.getElementById('previewStrip');
+    const thumbs = document.getElementById('previewThumbs');
     document.getElementById('uploadZone').style.display = 'none';
-    document.getElementById('previewStrip').style.display = 'block';
-    document.getElementById('previewThumbs').innerHTML = currentImages.map((img, i) =>
-      '<div style="position:relative;width:80px;height:80px;flex-shrink:0;"><img src="' + img.dataUrl + '" style="width:80px;height:80px;object-fit:cover;border-radius:var(--radius-md);border:0.5px solid var(--border-md);"><button onclick="removeImage(' + i + ')" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--text-primary);color:var(--bg);border:none;cursor:pointer;font-size:11px;line-height:1;">x</button></div>'
-    ).join('');
+    strip.style.display = 'block';
+    thumbs.innerHTML = currentImages.map((img, i) => `
+      <div style="position:relative; width:80px; height:80px; flex-shrink:0;">
+        <img src="${img.dataUrl}" style="width:80px;height:80px;object-fit:cover;border-radius:var(--radius-md);border:0.5px solid var(--border-md);">
+        <button onclick="removeImage(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--text-primary);color:var(--bg);border:none;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;line-height:1;">✕</button>
+      </div>
+    `).join('');
   }
 
   function removeImage(i) {
     currentImages.splice(i, 1);
-    if (!currentImages.length) { resetForm(); return; }
-    renderPreviews(); checkClarity();
-  }
-
-  async function callVision(dataUrl) {
-    const resp = await fetch('/api/claude', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: dataUrl })
-    });
-    return await resp.json();
+    if (!currentImages.length) {
+      resetForm(); return;
+    }
+    renderPreviews();
+    checkClarity();
   }
 
   async function checkClarity() {
-    const alertEl = document.getElementById('clarityAlert');
-    const btn = document.getElementById('scanBtn');
     try {
-      const data = await callVision(currentImages[0].dataUrl);
-      if (!data.success) {
-        alertEl.className = 'clarity-alert bad';
-        document.getElementById('clarityIcon').className = 'ti ti-alert-triangle';
-        document.getElementById('clarityTitle').textContent = 'Could not read photo';
-        document.getElementById('clarityMsg').textContent = data.detail || 'Try retaking in better lighting.';
-        btn.disabled = false;
-        btn.innerHTML = '<i class="ti ti-scan"></i> Try extracting anyway';
-      } else if (!data.text || data.text.trim().length < 10) {
+      const images = currentImages.map(img => ({ base64: img.dataUrl.split(',')[1] }));
+      const resp = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ images })
+      });
+      const data = await resp.json();
+
+      const alertEl = document.getElementById('clarityAlert');
+      const btn = document.getElementById('scanBtn');
+
+      if (!data.success && data.reason === 'no_text') {
         alertEl.className = 'clarity-alert bad';
         document.getElementById('clarityIcon').className = 'ti ti-alert-triangle';
         document.getElementById('clarityTitle').textContent = 'No text detected';
-        document.getElementById('clarityMsg').textContent = 'Photo may be too blurry. Try another angle.';
+        document.getElementById('clarityMsg').textContent = 'Photo may be too blurry, dark, or angled. Try retaking in better lighting.';
         btn.disabled = false;
         btn.innerHTML = '<i class="ti ti-scan"></i> Try extracting anyway';
+      } else if (data.success) {
+        const missing = (data.missingFields || []).filter(f => f !== 'tin');
+        if (missing.length) {
+          alertEl.className = 'clarity-alert bad';
+          document.getElementById('clarityIcon').className = 'ti ti-alert-triangle';
+          document.getElementById('clarityTitle').textContent = 'Can\'t read: ' + missing.map(f => ({company:'Company name',amount:'Total amount',date:'Date'})[f]||f).join(', ');
+          document.getElementById('clarityMsg').textContent = 'Try adding another angle or retake in better lighting.';
+        } else {
+          alertEl.className = 'clarity-alert good';
+          document.getElementById('clarityIcon').className = 'ti ti-circle-check';
+          document.getElementById('clarityTitle').textContent = 'Photo looks good!';
+          document.getElementById('clarityMsg').textContent = 'Text is readable — ready to extract.';
+        }
+        btn.disabled = false;
+        btn.innerHTML = '<i class="ti ti-scan"></i> Extract receipt data';
       } else {
-        alertEl.className = 'clarity-alert good';
-        document.getElementById('clarityIcon').className = 'ti ti-circle-check';
-        document.getElementById('clarityTitle').textContent = 'Photo looks good!';
-        document.getElementById('clarityMsg').textContent = 'Text detected — ready to extract.';
         btn.disabled = false;
         btn.innerHTML = '<i class="ti ti-scan"></i> Extract receipt data';
       }
     } catch(err) {
+      const btn = document.getElementById('scanBtn');
       btn.disabled = false;
       btn.innerHTML = '<i class="ti ti-scan"></i> Extract receipt data';
     }
@@ -604,17 +646,21 @@
   async function scanReceipt() {
     const btn = document.getElementById('scanBtn');
     btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div>&nbsp; Scanning receipt...';
+
     try {
-      const texts = [];
-      for (let i = 0; i < currentImages.length; i++) {
-        btn.innerHTML = '<div class="spinner"></div> Scanning photo ' + (i+1) + ' of ' + currentImages.length + '...';
-        const data = await callVision(currentImages[i].dataUrl);
-        if (data.success && data.text) texts.push(data.text);
-        else if (!data.success && data.detail) throw new Error(data.detail);
-      }
-      if (!texts.length) throw new Error('No text found. Try retaking in better lighting.');
-      const p = parseReceiptText(texts.join('
-'));
+      const images = currentImages.map(img => ({ base64: img.dataUrl.split(',')[1] }));
+      const resp = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ images })
+      });
+
+      const data = await resp.json();
+      if (data.error) throw new Error(data.error);
+      if (!data.success) throw new Error(data.detail || 'Could not read text from photo. Please retake in better lighting.');
+
+      const p = data.fields;
       document.getElementById('f-company').value = p.company || '';
       document.getElementById('f-tin').value = p.tin || '';
       document.getElementById('f-address').value = p.address || '';
@@ -622,29 +668,32 @@
       document.getElementById('f-date').value = p.date || new Date().toISOString().split('T')[0];
       document.getElementById('f-or').value = p.orNumber || '';
       document.getElementById('formSection').style.display = 'block';
-      const missing = [];
-      if (!p.company) missing.push('Company name');
-      if (!p.amount) missing.push('Total amount');
-      if (missing.length) showToast('Please fill in: ' + missing.join(', '));
-      else showToast(!p.tin ? 'Scanned! No TIN - marked as non-official OR.' : 'Receipt scanned - review and save.');
+
+      const missing = (data.missingFields || []).filter(f => f !== 'tin');
+      if (missing.length) {
+        const labels = { company: 'Company name', amount: 'Total amount', date: 'Date' };
+        showToast('Please fill in: ' + missing.map(f => labels[f] || f).join(', '));
+      } else {
+        showToast(!p.tin ? 'Scanned! No TIN found — marked as non-official OR.' : 'Receipt scanned — review and save.');
+      }
     } catch(err) {
       document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
       document.getElementById('formSection').style.display = 'block';
-      showToast('Scan error: ' + (err.message || 'Enter details manually.'));
+      showToast('Scan error: ' + (err.message || 'Please enter details manually.'));
     }
+
     btn.disabled = false;
     btn.innerHTML = '<i class="ti ti-scan"></i> Re-scan';
   }
 
   function parseReceiptText(text) {
-    const lines = text.split('
-').map(l => l.trim()).filter(Boolean);
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
     let company = '';
     for (let i = 0; i < Math.min(6, lines.length); i++) {
       const line = lines[i];
       if (line.length > 3 && line.length < 80 && !/^\d/.test(line) && !/^(receipt|invoice|official|date|tin|vat|total|amount)/i.test(line)) { company = toTitleCase(line); break; }
     }
-    const tinMatch = text.match(/TIN[:\s#]*([0-9]{3}-[0-9]{3}-[0-9]{3,4}(?:-[0-9]{3,5})?)/i) || text.match(/([0-9]{3}-[0-9]{3}-[0-9]{3,4}(?:-[0-9]{3,5})?)/);
+    const tinMatch = text.match(/\bTIN[:\s#]*([0-9]{3}-[0-9]{3}-[0-9]{3,4}(?:-[0-9]{3,5})?)/i) || text.match(/\b([0-9]{3}-[0-9]{3}-[0-9]{3,4}(?:-[0-9]{3,5})?)\b/);
     const tin = tinMatch ? tinMatch[1] : '';
     const orMatch = text.match(/(?:O\.?R\.?|Official Receipt|Invoice|Inv\.?|Receipt)\s*(?:No\.?|#|Number)?\s*[:\s]?\s*([A-Z0-9\-]{4,20})/i) || text.match(/(?:No\.?|#)\s*([A-Z0-9\-]{4,20})/i);
     const orNumber = orMatch ? orMatch[1].trim() : '';
@@ -657,15 +706,15 @@
     }
     if (!date) date = new Date().toISOString().split('T')[0];
     let amount = '';
-    for (const pat of [/(?:grand\s+total|total\s+amount\s+due|amount\s+due|total\s+due|total)[:\s]*(?:PHP|₱|P)?\s*([\d,]+\.?\d{0,2})/i, /(?:PHP|₱|P)\s*([\d,]+\.\d{2})/i, /TOTAL[:\s]*([\d,]+\.\d{2})/i]) { const m=text.match(pat); if(m){amount=m[1].replace(/,/g,'');break;} }
+    for (const p of [/(?:grand\s+total|total\s+amount\s+due|amount\s+due|total\s+due|total)[:\s]*(?:PHP|\u20b1|P)?\s*([\d,]+\.?\d{0,2})/i,/(?:PHP|\u20b1|P)\s*([\d,]+\.\d{2})/i,/TOTAL[:\s]*([\d,]+\.\d{2})/i]) { const m=text.match(p); if(m){amount=m[1].replace(/,/g,'');break;} }
     if (!amount) { const ns=[...text.matchAll(/([\d,]+\.\d{2})/g)].map(m=>parseFloat(m[1].replace(/,/g,''))); if(ns.length) amount=String(Math.max(...ns)); }
-    let al=[], pc=false;
-    const ak=/(st\.|street|ave\.|avenue|road|rd\.|blvd|floor|bldg|building|brgy|barangay|city|manila|quezon|makati|cebu|davao|philippines)/i;
+    let address='', al=[], pc=false;
+    const ak=/\b(st\.|street|ave\.|avenue|road|rd\.|blvd|floor|bldg|building|brgy|barangay|city|manila|quezon|makati|cebu|davao|ph|philippines)\b/i;
     for (const line of lines) { if(!pc&&line.toLowerCase().includes((company||'x').toLowerCase().split(' ')[0])){pc=true;continue;} if(pc&&ak.test(line)&&line.length<100){al.push(line);if(al.length>=2)break;} }
     return { company, tin, orNumber, date, amount, address: al.join(', ') };
   }
 
-  function toTitleCase(str) { return str.toLowerCase().replace(/\w/g, c => c.toUpperCase()); }
+  function toTitleCase(str) { return str.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()); }
 
   function selectChip(el, group) {
     const selector = group === 'cat' ? '.chip' : '.pay-chip';
@@ -681,18 +730,23 @@
     if (!company) { showToast('Please enter a company name.'); return; }
     if (!selectedCat) { showToast('Please select a category.'); return; }
     if (!selectedPay) { showToast('Please select a payment method.'); return; }
+
     const entry = {
-      id: Date.now(), company,
+      id: Date.now(),
+      company,
       tin: document.getElementById('f-tin').value.trim(),
       address: document.getElementById('f-address').value.trim(),
-      amount, date: document.getElementById('f-date').value,
+      amount,
+      date: document.getElementById('f-date').value,
       or: document.getElementById('f-or').value.trim(),
       notes: document.getElementById('f-notes').value.trim(),
-      category: selectedCat, payment: selectedPay,
+      category: selectedCat,
+      payment: selectedPay,
       officialReceipt: !!document.getElementById('f-tin').value.trim(),
       uploader: localStorage.getItem('xpense_uploader') || '',
       savedAt: new Date().toISOString()
     };
+
     entries.unshift(entry);
     try { localStorage.setItem('xpense_entries', JSON.stringify(entries)); } catch(e) {}
     showToast('Expense saved!');
@@ -700,9 +754,12 @@
   }
 
   function resetForm() {
-    ['f-company','f-tin','f-address','f-amount','f-date','f-or','f-notes'].forEach(id => { document.getElementById(id).value = ''; });
+    ['f-company','f-tin','f-address','f-amount','f-date','f-or','f-notes'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
     document.querySelectorAll('.chip, .pay-chip').forEach(b => b.classList.remove('selected'));
-    selectedCat = ''; selectedPay = ''; currentImages = [];
+    selectedCat = ''; selectedPay = '';
+    currentImages = [];
     document.getElementById('formSection').style.display = 'none';
     document.getElementById('previewStrip').style.display = 'none';
     document.getElementById('previewThumbs').innerHTML = '';
@@ -718,25 +775,55 @@
     const pay = document.getElementById('filterPay').value;
     const filtered = entries.filter(e => (!cat || e.category === cat) && (!pay || e.payment === pay));
     const list = document.getElementById('entriesList');
-    if (!filtered.length) { list.innerHTML = '<div class="empty-state"><i class="ti ti-receipt-off"></i>No entries yet. Scan your first receipt.</div>'; return; }
-    list.innerHTML = filtered.map(e => '<div class="entry-card"><div class="entry-top"><div class="entry-name">' + e.company + '</div><div style="display:flex;align-items:center;gap:4px;"><div class="entry-amount">₱' + parseFloat(e.amount).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div><button class="entry-delete" onclick="deleteEntry(' + e.id + ')" title="Delete"><i class="ti ti-x"></i></button></div></div><div class="entry-meta"><span class="badge">' + e.category + '</span><span class="badge">' + e.payment + '</span>' + (e.date?'<span class="badge">'+e.date+'</span>':'') + (e.or?'<span class="badge">OR: '+e.or+'</span>':'') + (!e.officialReceipt?'<span class="no-tin-badge">Non-official OR</span>':'') + (e.uploader?'<span class="badge">'+e.uploader+'</span>':'') + '</div>' + ((e.tin||e.address||e.notes)?'<div class="entry-sub">'+(e.tin?'TIN: '+e.tin+' · ':'')+e.address+(e.notes?' · '+e.notes:'')+'</div>':'') + '</div>').join('');
+
+    if (!filtered.length) {
+      list.innerHTML = '<div class="empty-state"><i class="ti ti-receipt-off"></i>No entries yet. Scan your first receipt.</div>';
+      return;
+    }
+
+    list.innerHTML = filtered.map(e => `
+      <div class="entry-card">
+        <div class="entry-top">
+          <div class="entry-name">${e.company}</div>
+          <div style="display:flex;align-items:center;gap:4px;">
+            <div class="entry-amount">₱${parseFloat(e.amount).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+            <button class="entry-delete" onclick="deleteEntry(${e.id})" title="Delete"><i class="ti ti-x"></i></button>
+          </div>
+        </div>
+        <div class="entry-meta">
+          <span class="badge">${e.category}</span>
+          <span class="badge">${e.payment}</span>
+          ${e.date ? `<span class="badge">${e.date}</span>` : ''}
+          ${e.or ? `<span class="badge">OR: ${e.or}</span>` : ''}
+          ${!e.officialReceipt ? `<span class="no-tin-badge">Non-official OR</span>` : ''}
+          ${e.uploader ? `<span class="badge"><i class="ti ti-user" style="font-size:10px;"></i> ${e.uploader}</span>` : ''}
+        </div>
+        ${(e.tin||e.address||e.notes) ? `<div class="entry-sub">${[e.tin?'TIN: '+e.tin:'',e.address,e.notes].filter(Boolean).join(' · ')}</div>` : ''}
+      </div>
+    `).join('');
   }
 
   function deleteEntry(id) {
     if (!confirm('Delete this entry?')) return;
     entries = entries.filter(e => e.id !== id);
     try { localStorage.setItem('xpense_entries', JSON.stringify(entries)); } catch(e) {}
-    renderEntries(); updateStats(); showToast('Entry deleted.');
+    renderEntries(); updateStats();
+    showToast('Entry deleted.');
   }
 
   function updateStats() {
     const now = new Date();
-    const monthly = entries.filter(e => { if (!e.date) return false; const d = new Date(e.date); return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear(); });
-    const total = monthly.reduce((s,e) => s+(parseFloat(e.amount)||0), 0);
-    document.getElementById('statTotal').textContent = '₱'+total.toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2});
+    const monthly = entries.filter(e => {
+      if (!e.date) return false;
+      const d = new Date(e.date);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    });
+    const total = monthly.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+    document.getElementById('statTotal').textContent = '₱' + total.toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2});
     document.getElementById('statCount').textContent = monthly.length;
-    const catCount = {}; monthly.forEach(e => { catCount[e.category]=(catCount[e.category]||0)+1; });
-    const top = Object.entries(catCount).sort((a,b)=>b[1]-a[1])[0];
+    const catCount = {};
+    monthly.forEach(e => { catCount[e.category] = (catCount[e.category] || 0) + 1; });
+    const top = Object.entries(catCount).sort((a,b) => b[1]-a[1])[0];
     document.getElementById('statTop').textContent = top ? top[0] : '—';
   }
 
@@ -744,31 +831,41 @@
     if (!entries.length) { showToast('No entries to export.'); return; }
     const header = ['Date','Company','TIN','Address','Category','Payment','Amount (PHP)','OR Number','Notes','Uploader'];
     const rows = entries.map(e => [e.date,e.company,e.tin,e.address,e.category,e.payment,e.amount,e.or,e.notes,e.uploader]);
-    const csv = [header,...rows].map(r=>r.map(v=>'"'+(v||'').toString().replace(/"/g,'""')+'"').join(',')).join('
-');
-    const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([csv],{type:'text/csv'})); a.download='expenses-'+new Date().toISOString().split('T')[0]+'.csv'; a.click();
-    showToast('CSV downloaded! Import into Google Sheets via File → Import.');
+    const csv = [header,...rows].map(r => r.map(v => `"${(v||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], {type:'text/csv'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `expenses-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    showToast('CSV downloaded! Import it into Google Sheets via File → Import.');
   }
 
   function exportPDF() {
     if (!entries.length) { showToast('No entries to export.'); return; }
-    const rows = entries.map(e=>'<tr><td>'+e.date+'</td><td>'+e.company+'</td><td>'+(e.tin||'')+'</td><td>'+(e.address||'')+'</td><td>'+e.category+'</td><td>'+e.payment+'</td><td style="text-align:right">₱'+parseFloat(e.amount).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2})+'</td></tr>').join('');
-    const total = entries.reduce((s,e)=>s+(parseFloat(e.amount)||0),0);
+    const rows = entries.map(e =>
+      `<tr><td>${e.date||''}</td><td>${e.company}</td><td>${e.tin||''}</td><td>${e.address||''}</td><td>${e.category}</td><td>${e.payment}</td><td style="text-align:right">₱${parseFloat(e.amount).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2})}</td></tr>`
+    ).join('');
+    const total = entries.reduce((s,e) => s+(parseFloat(e.amount)||0), 0);
+    const now = new Date().toLocaleDateString('en-PH',{year:'numeric',month:'long',day:'numeric'});
+    const html = `<!DOCTYPE html><html><head><title>Expense Report</title><meta charset="UTF-8"><style>body{font-family:sans-serif;padding:28px;font-size:13px;color:#1a1a18}h2{font-size:20px;margin-bottom:4px}p.sub{color:#6b6b67;margin-bottom:20px;font-size:13px}table{width:100%;border-collapse:collapse}th{background:#f0efeb;text-align:left;padding:9px 11px;border-bottom:1px solid #d0d0cc;font-size:12px;text-transform:uppercase;letter-spacing:0.04em}td{padding:8px 11px;border-bottom:0.5px solid #e8e8e4;vertical-align:top}.total{text-align:right;margin-top:14px;font-weight:600;font-size:15px}</style></head><body><h2>Expense Report</h2><p class="sub">Generated ${now}</p><table><thead><tr><th>Date</th><th>Company</th><th>TIN</th><th>Address</th><th>Category</th><th>Payment</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table><div class="total">Total: ₱${total.toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2})}</div></body></html>`;
     const w = window.open('','_blank');
-    if (w) { w.document.write('<!DOCTYPE html><html><head><title>Expense Report</title><style>body{font-family:sans-serif;padding:28px;font-size:13px}table{width:100%;border-collapse:collapse}th{background:#f0efeb;text-align:left;padding:9px;border-bottom:1px solid #ddd;font-size:12px}td{padding:8px 9px;border-bottom:0.5px solid #eee}.total{text-align:right;margin-top:14px;font-weight:600}</style></head><body><h2>Expense Report</h2><table><thead><tr><th>Date</th><th>Company</th><th>TIN</th><th>Address</th><th>Category</th><th>Payment</th><th>Amount</th></tr></thead><tbody>'+rows+'</tbody></table><div class="total">Total: ₱'+total.toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2})+'</div></body></html>'); w.document.close(); setTimeout(()=>w.print(),400); }
+    if (w) { w.document.write(html); w.document.close(); setTimeout(() => w.print(), 400); }
     else showToast('Allow pop-ups to export PDF.');
   }
 
   function clearAll() {
-    if (!confirm('Delete ALL entries? This cannot be undone.')) return;
-    entries = []; localStorage.removeItem('xpense_entries');
-    renderEntries(); updateStats(); showToast('All entries cleared.');
+    if (!confirm('Delete ALL expense entries? This cannot be undone.')) return;
+    entries = [];
+    localStorage.removeItem('xpense_entries');
+    renderEntries(); updateStats();
+    showToast('All entries cleared.');
   }
 
   function showToast(msg) {
     const t = document.getElementById('toast');
     t.textContent = msg; t.classList.add('show');
-    clearTimeout(t._timer); t._timer = setTimeout(()=>t.classList.remove('show'), 3200);
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => t.classList.remove('show'), 3200);
   }
 
   load();
