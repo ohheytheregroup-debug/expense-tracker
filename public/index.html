@@ -395,6 +395,12 @@
         </div>
       </div>
     </div>
+    <div class="card" id="sheetsSyncCard" style="display:none;">
+      <h3 style="font-size:15px;font-weight:700;margin-bottom:8px;">📊 Google Sheets Sync</h3>
+      <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">All new expenses auto-sync. Use this to push all existing entries to the sheet.</p>
+      <button id="syncAllBtn" onclick="syncAllToSheets()" style="padding:8px 16px;font-size:13px;background:var(--pink);color:white;border:none;border-radius:8px;cursor:pointer;font-family:var(--font);font-weight:600;">↑ Sync all entries to Sheet</button>
+      <div id="syncStatus" style="font-size:12px;color:var(--text3);margin-top:8px;"></div>
+    </div>
     <div class="card" id="dangerZoneCard" style="display:none;">
       <h3 style="font-size:15px;font-weight:700;margin-bottom:8px;color:#e74c3c;">🗑️ Danger zone</h3>
       <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">Clear all saved expenses from this device.</p>
@@ -525,6 +531,7 @@
     if (acc.role === 'owner') {
       document.getElementById('ownerAccountsCard').style.display = 'block';
       document.getElementById('dangerZoneCard').style.display = 'block';
+      document.getElementById('sheetsSyncCard').style.display = 'block';
     } else {
       document.getElementById('dangerZoneCard').style.display = 'none';
     }
@@ -919,6 +926,40 @@
   // ── End VAT helpers ──────────────────────────────────────────
 
 
+
+  async function syncAllToSheets() {
+    const btn = document.getElementById('syncAllBtn');
+    const status = document.getElementById('syncStatus');
+    btn.disabled = true;
+    btn.textContent = 'Syncing...';
+    status.textContent = '';
+    let success = 0, failed = 0;
+    for (let i = 0; i < entries.length; i++) {
+      const e = entries[i];
+      status.textContent = `Syncing ${i+1} of ${entries.length}...`;
+      try {
+        await fetch('/api/claude', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({
+            action: 'sync-sheet',
+            entry: {
+              date: e.date, company: e.company, tin: e.tin, address: e.address,
+              amount: e.amount, discount: e.discount||0, vat_type: e.vatType||'',
+              vatable_sales: e.vatableSales||0, vat_amount: e.vatAmount||0,
+              category: e.category, payment: e.payment, owner: e.owner,
+              uploader: e.uploader, notes: e.notes, saved_at: e.savedAt
+            }
+          })
+        });
+        success++;
+      } catch(err) { failed++; }
+    }
+    btn.disabled = false;
+    btn.textContent = '↑ Sync all entries to Sheet';
+    status.textContent = `✓ Synced ${success} entries${failed ? ', ' + failed + ' failed' : ''}.`;
+    showToast('Sheet sync complete!');
+  }
   async function uploadReceiptPhotos(entryId, images, month) {
     const urls = [];
     for (let i = 0; i < images.length; i++) {
