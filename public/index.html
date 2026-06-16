@@ -953,7 +953,7 @@
   function updateStats() {
     populateMonthFilter();
     const filtered = getFilteredByMonth();
-    const total = filtered.reduce((s,e) => s + (e.repaid ? 0 : (parseFloat(e.amount)||0)), 0);
+    const total = filtered.filter(e => e.owner === 'OHT Expense').reduce((s,e) => s + (e.repaid ? 0 : (parseFloat(e.amount)||0)), 0);
     document.getElementById('statTotal').textContent = '₱'+total.toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2});
     document.getElementById('statCount').textContent = filtered.length;
     const catCount = {}; filtered.forEach(e => { catCount[e.category]=(catCount[e.category]||0)+1; });
