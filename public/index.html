@@ -597,43 +597,47 @@
     checkClarity();
   }
 
-  async function callVision(dataUrl) {
-    const resp = await fetch('/api/claude', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ image: dataUrl })
-    });
-    return await resp.json();
-  }
-
   async function checkClarity() {
-    const alertEl = document.getElementById('clarityAlert');
-    const btn = document.getElementById('scanBtn');
     try {
-      const data = await callVision(currentImages[0].dataUrl);
-      if (!data.success) {
-        alertEl.className = 'clarity-alert bad';
-        document.getElementById('clarityIcon').className = 'ti ti-alert-triangle';
-        document.getElementById('clarityTitle').textContent = 'Could not read photo';
-        document.getElementById('clarityMsg').textContent = data.detail || 'Try retaking in better lighting.';
-        btn.disabled = false;
-        btn.innerHTML = '<i class="ti ti-scan"></i> Try extracting anyway';
-      } else if (!data.text || data.text.trim().length < 10) {
+      const images = currentImages.map(img => ({ base64: img.dataUrl.split(',')[1] }));
+      const resp = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ images })
+      });
+      const data = await resp.json();
+
+      const alertEl = document.getElementById('clarityAlert');
+      const btn = document.getElementById('scanBtn');
+
+      if (!data.success && data.reason === 'no_text') {
         alertEl.className = 'clarity-alert bad';
         document.getElementById('clarityIcon').className = 'ti ti-alert-triangle';
         document.getElementById('clarityTitle').textContent = 'No text detected';
-        document.getElementById('clarityMsg').textContent = 'Photo may be too blurry. Try another angle.';
+        document.getElementById('clarityMsg').textContent = 'Photo may be too blurry, dark, or angled. Try retaking in better lighting.';
         btn.disabled = false;
         btn.innerHTML = '<i class="ti ti-scan"></i> Try extracting anyway';
+      } else if (data.success) {
+        const missing = (data.missingFields || []).filter(f => f !== 'tin');
+        if (missing.length) {
+          alertEl.className = 'clarity-alert bad';
+          document.getElementById('clarityIcon').className = 'ti ti-alert-triangle';
+          document.getElementById('clarityTitle').textContent = 'Can\'t read: ' + missing.map(f => ({company:'Company name',amount:'Total amount',date:'Date'})[f]||f).join(', ');
+          document.getElementById('clarityMsg').textContent = 'Try adding another angle or retake in better lighting.';
+        } else {
+          alertEl.className = 'clarity-alert good';
+          document.getElementById('clarityIcon').className = 'ti ti-circle-check';
+          document.getElementById('clarityTitle').textContent = 'Photo looks good!';
+          document.getElementById('clarityMsg').textContent = 'Text is readable — ready to extract.';
+        }
+        btn.disabled = false;
+        btn.innerHTML = '<i class="ti ti-scan"></i> Extract receipt data';
       } else {
-        alertEl.className = 'clarity-alert good';
-        document.getElementById('clarityIcon').className = 'ti ti-circle-check';
-        document.getElementById('clarityTitle').textContent = 'Photo looks good!';
-        document.getElementById('clarityMsg').textContent = 'Text detected — ready to extract.';
         btn.disabled = false;
         btn.innerHTML = '<i class="ti ti-scan"></i> Extract receipt data';
       }
     } catch(err) {
+      const btn = document.getElementById('scanBtn');
       btn.disabled = false;
       btn.innerHTML = '<i class="ti ti-scan"></i> Extract receipt data';
     }
@@ -642,17 +646,21 @@
   async function scanReceipt() {
     const btn = document.getElementById('scanBtn');
     btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div>&nbsp; Scanning receipt...';
+
     try {
-      const texts = [];
-      for (let i = 0; i < currentImages.length; i++) {
-        btn.innerHTML = '<div class="spinner"></div> Scanning photo ' + (i+1) + ' of ' + currentImages.length + '...';
-        const data = await callVision(currentImages[i].dataUrl);
-        if (data.success && data.text) texts.push(data.text);
-        else if (!data.success && data.detail) throw new Error(data.detail);
-      }
-      if (!texts.length) throw new Error('No text found. Try retaking in better lighting.');
-      const fullText = texts.join('\n');
-      const p = parseReceiptText(fullText);
+      const images = currentImages.map(img => ({ base64: img.dataUrl.split(',')[1] }));
+      const resp = await fetch('/api/claude', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ images })
+      });
+
+      const data = await resp.json();
+      if (data.error) throw new Error(data.error);
+      if (!data.success) throw new Error(data.detail || 'Could not read text from photo. Please retake in better lighting.');
+
+      const p = data.fields;
       document.getElementById('f-company').value = p.company || '';
       document.getElementById('f-tin').value = p.tin || '';
       document.getElementById('f-address').value = p.address || '';
@@ -660,19 +668,53 @@
       document.getElementById('f-date').value = p.date || new Date().toISOString().split('T')[0];
       document.getElementById('f-or').value = p.orNumber || '';
       document.getElementById('formSection').style.display = 'block';
-      const missing = [];
-      if (!p.company) missing.push('Company name');
-      if (!p.amount) missing.push('Total amount');
-      if (missing.length) showToast('Please fill in: ' + missing.join(', '));
-      else showToast(!p.tin ? 'Scanned! No TIN - marked as non-official OR.' : 'Receipt scanned - review and save.');
+
+      const missing = (data.missingFields || []).filter(f => f !== 'tin');
+      if (missing.length) {
+        const labels = { company: 'Company name', amount: 'Total amount', date: 'Date' };
+        showToast('Please fill in: ' + missing.map(f => labels[f] || f).join(', '));
+      } else {
+        showToast(!p.tin ? 'Scanned! No TIN found — marked as non-official OR.' : 'Receipt scanned — review and save.');
+      }
     } catch(err) {
       document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
       document.getElementById('formSection').style.display = 'block';
-      showToast('Scan error: ' + (err.message || 'Enter details manually.'));
+      showToast('Scan error: ' + (err.message || 'Please enter details manually.'));
     }
+
     btn.disabled = false;
     btn.innerHTML = '<i class="ti ti-scan"></i> Re-scan';
   }
+
+  function parseReceiptText(text) {
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    let company = '';
+    for (let i = 0; i < Math.min(6, lines.length); i++) {
+      const line = lines[i];
+      if (line.length > 3 && line.length < 80 && !/^\d/.test(line) && !/^(receipt|invoice|official|date|tin|vat|total|amount)/i.test(line)) { company = toTitleCase(line); break; }
+    }
+    const tinMatch = text.match(/\bTIN[:\s#]*([0-9]{3}-[0-9]{3}-[0-9]{3,4}(?:-[0-9]{3,5})?)/i) || text.match(/\b([0-9]{3}-[0-9]{3}-[0-9]{3,4}(?:-[0-9]{3,5})?)\b/);
+    const tin = tinMatch ? tinMatch[1] : '';
+    const orMatch = text.match(/(?:O\.?R\.?|Official Receipt|Invoice|Inv\.?|Receipt)\s*(?:No\.?|#|Number)?\s*[:\s]?\s*([A-Z0-9\-]{4,20})/i) || text.match(/(?:No\.?|#)\s*([A-Z0-9\-]{4,20})/i);
+    const orNumber = orMatch ? orMatch[1].trim() : '';
+    const dateMatch = text.match(/(\d{1,2})[\/\-\.](\d{1,2})[\/\-\.](\d{2,4})/);
+    let date = '';
+    if (dateMatch) { let [,a,b,c] = dateMatch; if (c.length===2) c='20'+c; date=c+'-'+a.padStart(2,'0')+'-'+b.padStart(2,'0'); }
+    else {
+      const mm = text.match(/(\d{1,2})\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s,]+(\d{4})/i) || text.match(/(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)[a-z]*[\s,]+(\d{1,2})[\s,]+(\d{4})/i);
+      if (mm) { const mo={jan:'01',feb:'02',mar:'03',apr:'04',may:'05',jun:'06',jul:'07',aug:'08',sep:'09',oct:'10',nov:'11',dec:'12'}; date=/^\d/.test(mm[1])?(mm[3]+'-'+mo[mm[2].toLowerCase().slice(0,3)]+'-'+mm[1].padStart(2,'0')):(mm[3]+'-'+mo[mm[1].toLowerCase().slice(0,3)]+'-'+mm[2].padStart(2,'0')); }
+    }
+    if (!date) date = new Date().toISOString().split('T')[0];
+    let amount = '';
+    for (const p of [/(?:grand\s+total|total\s+amount\s+due|amount\s+due|total\s+due|total)[:\s]*(?:PHP|\u20b1|P)?\s*([\d,]+\.?\d{0,2})/i,/(?:PHP|\u20b1|P)\s*([\d,]+\.\d{2})/i,/TOTAL[:\s]*([\d,]+\.\d{2})/i]) { const m=text.match(p); if(m){amount=m[1].replace(/,/g,'');break;} }
+    if (!amount) { const ns=[...text.matchAll(/([\d,]+\.\d{2})/g)].map(m=>parseFloat(m[1].replace(/,/g,''))); if(ns.length) amount=String(Math.max(...ns)); }
+    let address='', al=[], pc=false;
+    const ak=/\b(st\.|street|ave\.|avenue|road|rd\.|blvd|floor|bldg|building|brgy|barangay|city|manila|quezon|makati|cebu|davao|ph|philippines)\b/i;
+    for (const line of lines) { if(!pc&&line.toLowerCase().includes((company||'x').toLowerCase().split(' ')[0])){pc=true;continue;} if(pc&&ak.test(line)&&line.length<100){al.push(line);if(al.length>=2)break;} }
+    return { company, tin, orNumber, date, amount, address: al.join(', ') };
+  }
+
+  function toTitleCase(str) { return str.toLowerCase().replace(/\b\w/g,c=>c.toUpperCase()); }
 
   function selectChip(el, group) {
     const selector = group === 'cat' ? '.chip' : '.pay-chip';
