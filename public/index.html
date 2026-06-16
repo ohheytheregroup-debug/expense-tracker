@@ -818,11 +818,12 @@
       savedAt: new Date().toISOString()
     };
     entries.unshift(entry);
-    // Upload receipt photos in background
+    // Capture images NOW before resetForm clears currentImages
+    const imagesToUpload = [...currentImages];
     const entryMonth = (entry.date || new Date().toISOString().split('T')[0]).substring(0,7);
-    if (currentImages && currentImages.length > 0) {
+    if (imagesToUpload.length > 0) {
       showToast('Saving receipt photos...');
-      uploadReceiptPhotos(entry.id, currentImages, entryMonth).then(urls => {
+      uploadReceiptPhotos(entry.id, imagesToUpload, entryMonth).then(urls => {
         if (urls.length > 0) {
           entry.receiptPhotos = urls;
           fetch('/api/claude', { method:'POST', headers:{'Content-Type':'application/json'},
