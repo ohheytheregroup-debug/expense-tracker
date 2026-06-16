@@ -258,6 +258,7 @@
         <span class="section-label">Payment method</span>
         <div class="pay-grid" id="payGrid">
           <button class="pay-chip" onclick="selectChip(this,'pay')">Cash</button>
+          <button class="pay-chip" onclick="selectChip(this,'pay')">Gcash - OHT</button>
           <button class="pay-chip" onclick="selectChip(this,'pay')">Gcash - Alex</button>
           <button class="pay-chip" onclick="selectChip(this,'pay')">Gcash - CJ</button>
           <button class="pay-chip" onclick="selectChip(this,'pay')">Union - CC</button>
@@ -313,7 +314,7 @@
       </select>
       <select id="filterPay" onchange="renderEntries()">
         <option value="">All payment methods</option>
-        <option>Cash</option><option>Gcash - Alex</option><option>Gcash - CJ</option>
+        <option>Cash</option><option>Gcash - OHT</option><option>Gcash - CJ</option>
         <option>Union - CC</option><option>Union - OHT Cafe</option>
         <option>Union - Alexsandria</option><option>Metrobank - OHT Advertising</option>
       </select>
@@ -407,6 +408,7 @@
       <span class="section-label">Payment method</span>
       <div class="pay-grid" id="e-payGrid">
         <button class="pay-chip" onclick="editSelectPay(this)">Cash</button>
+        <button class="pay-chip" onclick="editSelectPay(this)">Gcash - OHT</button>
         <button class="pay-chip" onclick="editSelectPay(this)">Gcash - Alex</button>
         <button class="pay-chip" onclick="editSelectPay(this)">Gcash - CJ</button>
         <button class="pay-chip" onclick="editSelectPay(this)">Union - CC</button>
