@@ -100,6 +100,18 @@
     }
     .entry-delete { background: none; border: none; cursor: pointer; color: var(--text3); font-size: 16px; padding: 2px; margin-left: 6px; }
     .entry-delete:hover { color: var(--pink); }
+    .entry-edit { background: none; border: none; cursor: pointer; color: var(--text3); font-size: 16px; padding: 2px; margin-left: 2px; }
+    .entry-edit:hover { color: var(--pink); }
+    .view-toggle-btn { padding: 7px 12px; font-size: 13px; border: 1.5px solid var(--border2); border-radius: 8px; background: var(--bg); color: var(--text2); cursor: pointer; font-family: var(--font); font-weight: 500; display: flex; align-items: center; gap: 5px; transition: all 0.15s; }
+    .view-toggle-btn:hover { border-color: var(--pink); color: var(--pink); background: var(--pink-light); }
+    .entries-table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 4px; }
+    .entries-table th { background: var(--pink-light); color: var(--pink); text-align: left; padding: 9px 10px; border-bottom: 1.5px solid var(--pink); font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; }
+    .entries-table td { padding: 9px 10px; border-bottom: 0.5px solid var(--border); color: var(--text); vertical-align: middle; }
+    .entries-table tr:last-child td { border-bottom: none; }
+    .entries-table tr.repaid td { opacity: 0.5; text-decoration: line-through; }
+    .entries-table .tbl-actions { display: flex; gap: 4px; align-items: center; }
+    .entries-table .tbl-actions button { background: none; border: none; cursor: pointer; color: var(--text3); font-size: 15px; padding: 2px 4px; }
+    .entries-table .tbl-actions button:hover { color: var(--pink); }
     .entry-sub { font-size: 12px; color: var(--text3); margin-top: 4px; }
     .empty-state { text-align: center; padding: 3.5rem 1rem; color: var(--text3); font-size: 14px; }
     .gs-setup .field { margin-bottom: 12px; }
@@ -253,6 +265,7 @@
     <div class="entries-header">
       <h2>All entries</h2>
       <div class="export-row">
+        <button class="view-toggle-btn" id="viewToggleBtn" onclick="toggleViewMode()"><i class="ti ti-table" id="viewToggleIcon"></i> <span id="viewToggleLabel">Table</span></button>
         <button class="export-btn" onclick="exportPDF()"><i class="ti ti-file-type-pdf"></i> PDF</button>
         <button class="export-btn" onclick="exportCSV()"><i class="ti ti-table-export"></i> CSV</button>
       </div>
@@ -626,6 +639,18 @@
     document.getElementById('fileInput').value = '';
   }
 
+  let viewMode = 'card'; // 'card' or 'table'
+  function toggleViewMode() {
+    viewMode = viewMode === 'card' ? 'table' : 'card';
+    const icon = document.getElementById('viewToggleIcon');
+    const label = document.getElementById('viewToggleLabel');
+    if (icon && label) {
+      icon.className = viewMode === 'card' ? 'ti ti-layout-cards' : 'ti ti-table';
+      label.textContent = viewMode === 'card' ? 'Cards' : 'Table';
+    }
+    renderEntries();
+  }
+
   function renderEntries() {
     const cat = document.getElementById('filterCat').value;
     const pay = document.getElementById('filterPay').value;
@@ -633,27 +658,52 @@
     const list = document.getElementById('entriesList');
     if (!filtered.length) { list.innerHTML = '<div class="empty-state"><div style="font-size:48px;margin-bottom:10px;">🧾</div>No entries yet.<br>Scan your first receipt!</div>'; return; }
     const isLoan = e => e.category === 'Loan - Alex' || e.category === 'Loan - CJ';
-    list.innerHTML = filtered.map(e =>
-      '<div class="entry-card' + (e.repaid ? ' repaid' : '') + '">' +
-      '<div class="entry-top">' +
-      '<div class="entry-name">' + e.company + '</div>' +
-      '<div style="display:flex;align-items:center;gap:4px;">' +
-      '<div class="entry-amount">₱' + parseFloat(e.amount).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div>' +
-      '<button class="entry-delete" onclick="deleteEntry(' + e.id + ')"><i class="ti ti-x"></i></button>' +
-      '</div></div>' +
-      '<div class="entry-meta">' +
-      '<span class="badge">' + e.category + '</span>' +
-      '<span class="badge">' + e.payment + '</span>' +
-      (e.date ? '<span class="badge">' + e.date + '</span>' : '') +
-      (e.or ? '<span class="badge">OR: ' + e.or + '</span>' : '') +
-      (e.owner ? '<span class="badge" style="background:var(--pink-light);color:var(--pink);border-color:var(--pink);">' + e.owner + '</span>' : '') +
-      (!e.officialReceipt ? '<span class="no-tin-badge">Non-official OR</span>' : '') +
-      (e.uploader ? '<span class="badge">' + e.uploader + '</span>' : '') +
-      '</div>' +
-      (isLoan(e) ? '<button class="repaid-btn' + (e.repaid ? ' is-repaid' : '') + '" onclick="toggleRepaid(' + e.id + ')">' + (e.repaid ? '✓ Repaid — tap to undo' : 'Mark as repaid') + '</button>' : '') +
-      ((e.tin||e.address||e.notes) ? '<div class="entry-sub">' + [e.tin?'TIN: '+e.tin:'', e.address, e.notes].filter(Boolean).join(' · ') + '</div>' : '') +
-      '</div>'
-    ).join('');
+    if (viewMode === 'table') {
+      list.innerHTML =
+        '<div style="overflow-x:auto;">' +
+        '<table class="entries-table">' +
+        '<thead><tr><th>Date</th><th>Company</th><th>Category</th><th>Payment</th><th>Owner</th><th style="text-align:right">Amount</th><th></th></tr></thead>' +
+        '<tbody>' +
+        filtered.map(e =>
+          '<tr class="' + (e.repaid ? 'repaid' : '') + '">' +
+          '<td>' + (e.date || '—') + '</td>' +
+          '<td><strong>' + e.company + '</strong>' + (e.or ? '<br><span style="font-size:11px;color:var(--text3)">OR: ' + e.or + '</span>' : '') + '</td>' +
+          '<td>' + e.category + '</td>' +
+          '<td>' + e.payment + '</td>' +
+          '<td>' + (e.owner || '—') + '</td>' +
+          '<td style="text-align:right;font-weight:700;color:var(--pink)">₱' + parseFloat(e.amount).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</td>' +
+          '<td><div class="tbl-actions">' +
+          (isLoan(e) ? '<button title="' + (e.repaid ? 'Undo repaid' : 'Mark repaid') + '" onclick="toggleRepaid(' + e.id + ')"><i class="ti ti-' + (e.repaid ? 'rotate-clockwise' : 'check') + '"></i></button>' : '') +
+          '<button title="Edit" onclick="openEdit(' + e.id + ')"><i class="ti ti-pencil"></i></button>' +
+          '<button title="Delete" onclick="deleteEntry(' + e.id + ')"><i class="ti ti-x"></i></button>' +
+          '</div></td>' +
+          '</tr>'
+        ).join('') +
+        '</tbody></table></div>';
+    } else {
+      list.innerHTML = filtered.map(e =>
+        '<div class="entry-card' + (e.repaid ? ' repaid' : '') + '">' +
+        '<div class="entry-top">' +
+        '<div class="entry-name">' + e.company + '</div>' +
+        '<div style="display:flex;align-items:center;gap:4px;">' +
+        '<div class="entry-amount">₱' + parseFloat(e.amount).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div>' +
+        '<button class="entry-edit" title="Edit" onclick="openEdit(' + e.id + ')"><i class="ti ti-pencil"></i></button>' +
+        '<button class="entry-delete" title="Delete" onclick="deleteEntry(' + e.id + ')"><i class="ti ti-x"></i></button>' +
+        '</div></div>' +
+        '<div class="entry-meta">' +
+        '<span class="badge">' + e.category + '</span>' +
+        '<span class="badge">' + e.payment + '</span>' +
+        (e.date ? '<span class="badge">' + e.date + '</span>' : '') +
+        (e.or ? '<span class="badge">OR: ' + e.or + '</span>' : '') +
+        (e.owner ? '<span class="badge" style="background:var(--pink-light);color:var(--pink);border-color:var(--pink);">' + e.owner + '</span>' : '') +
+        (!e.officialReceipt ? '<span class="no-tin-badge">Non-official OR</span>' : '') +
+        (e.uploader ? '<span class="badge">' + e.uploader + '</span>' : '') +
+        '</div>' +
+        (isLoan(e) ? '<button class="repaid-btn' + (e.repaid ? ' is-repaid' : '') + '" onclick="toggleRepaid(' + e.id + ')">' + (e.repaid ? '✓ Repaid — tap to undo' : 'Mark as repaid') + '</button>' : '') +
+        ((e.tin||e.address||e.notes) ? '<div class="entry-sub">' + [e.tin?'TIN: '+e.tin:'', e.address, e.notes].filter(Boolean).join(' · ') + '</div>' : '') +
+        '</div>'
+      ).join('');
+    }
   }
 
   function toggleRepaid(id) {
