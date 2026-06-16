@@ -407,7 +407,7 @@
       <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">Export CSV then go to Google Sheets → File → Import.</p>
       <button class="gs-save-btn" onclick="saveSettings()">Save settings</button>
     </div>
-    <div class="card">
+    <div class="card" id="dangerZoneCard" style="display:none;">
       <h3 style="font-size:15px;font-weight:700;margin-bottom:8px;color:#e74c3c;">🗑️ Danger zone</h3>
       <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">Clear all saved expenses from this device.</p>
       <button onclick="clearAll()" style="padding:8px 16px;font-size:13px;border:1.5px solid #e74c3c;border-radius:var(--radius-sm);background:transparent;color:#e74c3c;cursor:pointer;font-family:var(--font);">Clear all data</button>
@@ -536,6 +536,9 @@
     // Show owner-only UI
     if (acc.role === 'owner') {
       document.getElementById('ownerAccountsCard').style.display = 'block';
+      document.getElementById('dangerZoneCard').style.display = 'block';
+    } else {
+      document.getElementById('dangerZoneCard').style.display = 'none';
     }
     renderAccountsList();
     loadAndFilter();
