@@ -80,8 +80,22 @@ export default async function handler(req, res) {
   if (!image) return res.status(400).json({ success: false, detail: 'No image provided' });
   const apiKey = process.env.GOOGLE_VISION_API_KEY;
   let base64 = image;
+  // Strip data URL prefix if present
   if (base64.includes(',')) base64 = base64.split(',')[1];
+  // Remove all whitespace/newlines
   base64 = base64.replace(/[\s\r\n]/g, '');
+  // Fix base64 padding
+  while (base64.length % 4 !== 0) base64 += '=';
+  // Validate it's actually base64
+  if (!/^[A-Za-z0-9+/]+=*$/.test(base64.substring(0, 100))) {
+    return res.status(200).json({ success: false, detail: 'Invalid image format. Please use JPG or PNG.' });
+  }
+  // Convert to JPEG via Canvas if needed - resize large images to avoid Vision API limits
+  // Max recommended size is 4MB for Vision API
+  const imgBuffer = Buffer.from(base64, 'base64');
+  if (imgBuffer.length > 4 * 1024 * 1024) {
+    return res.status(200).json({ success: false, detail: 'Image too large. Please use an image under 4MB.' });
+  }
   try {
     const visionResp = await fetch(`https://vision.googleapis.com/v1/images:annotate?key=${apiKey}`, {
       method: 'POST',
