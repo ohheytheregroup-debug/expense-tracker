@@ -43,6 +43,29 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: r.ok });
     }
 
+    if (body.action === 'upload-receipt') {
+      // Upload base64 image to Supabase Storage, organized by month
+      const { imageData, mimeType, entryId, month } = body;
+      const ext = mimeType === 'image/png' ? 'png' : 'jpg';
+      const filename = `${month}/${entryId}_${Date.now()}.${ext}`;
+      const imgBuffer = Buffer.from(imageData.replace(/^data:image\/\w+;base64,/, ''), 'base64');
+      const uploadResp = await fetch(`${process.env.SUPABASE_URL}/storage/v1/object/receipts/${filename}`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': mimeType || 'image/jpeg',
+          'apikey': process.env.SUPABASE_KEY,
+          'Authorization': `Bearer ${process.env.SUPABASE_KEY}`,
+        },
+        body: imgBuffer
+      });
+      if (!uploadResp.ok) {
+        const err = await uploadResp.text();
+        return res.status(200).json({ success: false, detail: err });
+      }
+      const publicUrl = `${process.env.SUPABASE_URL}/storage/v1/object/public/receipts/${filename}`;
+      return res.status(200).json({ success: true, url: publicUrl, filename });
+    }
+
     if (body.action === 'delete') {
       const r = await fetch(`${SUPABASE_URL}/rest/v1/expenses?id=eq.${body.id}`, {
         method: 'DELETE',
