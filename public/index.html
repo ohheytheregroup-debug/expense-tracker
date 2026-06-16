@@ -1039,7 +1039,6 @@
     entry.vatableSales = calcVat(document.getElementById('e-amount').value, vatTypeE, document.getElementById('e-discount').value).vatableSales;
     entry.vatAmount = calcVat(document.getElementById('e-amount').value, vatTypeE, document.getElementById('e-discount').value).vatAmount;
     entry.amount = parseFloat(document.getElementById('e-amount').value) || 0;
-    entry.or = document.getElementById('e-or').value.trim();
     entry.notes = document.getElementById('e-notes').value.trim();
     entry.category = editCat || entry.category;
     entry.payment = editPay || entry.payment;
