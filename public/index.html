@@ -597,6 +597,15 @@
     checkClarity();
   }
 
+  async function callVision(dataUrl) {
+    const resp = await fetch('/api/claude', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ image: dataUrl })
+    });
+    return await resp.json();
+  }
+
   async function checkClarity() {
     try {
       const images = currentImages.map(img => ({ base64: img.dataUrl.split(',')[1] }));
