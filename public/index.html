@@ -99,9 +99,9 @@
       .no-tin-badge { background: #2d2410; border-color: #6b4e00; color: #f5c842; }
       .repaid-btn.is-repaid { background: #0a2d16; color: #86efac; border-color: #166534; }
     }
-    .entry-delete { background: none; border: none; cursor: pointer; color: var(--text3); font-size: 16px; padding: 2px; margin-left: 6px; }
+    .entry-delete { background: #fee2e2; border: none; cursor: pointer; color: #dc2626; font-size: 14px; padding: 4px 8px; margin-left: 4px; border-radius: 6px; }
     .entry-delete:hover { color: var(--pink); }
-    .entry-edit { background: none; border: none; cursor: pointer; color: var(--text3); font-size: 16px; padding: 2px; margin-left: 2px; }
+    .entry-edit { background: var(--pink); border: none; cursor: pointer; color: white; font-size: 14px; padding: 4px 8px; margin-left: 6px; border-radius: 6px; }
     .entry-edit:hover { color: var(--pink); }
     .view-toggle-btn { padding: 7px 12px; font-size: 13px; border: 1.5px solid var(--border2); border-radius: 8px; background: var(--bg); color: var(--text2); cursor: pointer; font-family: var(--font); font-weight: 500; display: flex; align-items: center; gap: 5px; transition: all 0.15s; }
     .view-toggle-btn:hover { border-color: var(--pink); color: var(--pink); background: var(--pink-light); }
@@ -264,7 +264,7 @@
       <div class="stat-card"><div class="stat-label">Top category</div><div class="stat-value" id="statTop" style="font-size:13px;padding-top:3px;">—</div></div>
     </div>
     <div class="entries-header">
-      <h2>All entries</h2>
+      <h2>All entries <span style="font-size:10px;color:#ccc;">v9</span></h2>
       <div class="export-row">
         <button class="view-toggle-btn" id="viewToggleBtn" onclick="toggleViewMode()"><i class="ti ti-table" id="viewToggleIcon"></i> <span id="viewToggleLabel">Table</span></button>
         <button class="export-btn" onclick="exportPDF()"><i class="ti ti-file-type-pdf"></i> PDF</button>
