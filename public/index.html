@@ -203,7 +203,11 @@
           </div>
           <div class="form-group">
             <label>Total amount (PHP)</label>
-            <input type="text" id="f-amount" placeholder="0.00" oninput="renderVatBreakdown('f-vatBreakdown', this.value, vatTypeF)">
+            <input type="text" id="f-amount" placeholder="0.00" oninput="onAmountChange('f')">
+          </div>
+          <div class="form-group">
+            <label>Less: Discount (PHP)</label>
+            <input type="text" id="f-discount" placeholder="0.00" oninput="onAmountChange('f')">
           </div>
           <div class="form-group full">
             <label>VAT Type</label>
@@ -353,7 +357,11 @@
       <div class="form-group"><label>TIN</label><input type="text" id="e-tin"></div>
       <div class="form-group"><label>Date</label><input type="date" id="e-date"></div>
       <div class="form-group full"><label>Address</label><textarea id="e-address" rows="2"></textarea></div>
-      <div class="form-group"><label>Total amount (PHP)</label><input type="text" id="e-amount" oninput="renderVatBreakdown('e-vatBreakdown', this.value, vatTypeE)"></div>
+      <div class="form-group"><label>Total amount (PHP)</label><input type="text" id="e-amount" oninput="onAmountChange('e')"></div>
+      <div class="form-group">
+        <label>Less: Discount (PHP)</label>
+        <input type="text" id="e-discount" placeholder="0.00" oninput="onAmountChange('e')">
+      </div>
       <div class="form-group full">
         <label>VAT Type</label>
         <div class="vat-selector">
@@ -544,7 +552,9 @@
       document.getElementById('f-date').value = p.date || new Date().toISOString().split('T')[0];
       document.getElementById('formSection').style.display = 'block';
       autoDetectVat(fullText, 'f');
-      renderVatBreakdown('f-vatBreakdown', p.amount || 0, vatTypeF);
+      const detectedDiscount = autoDetectDiscount(fullText);
+      if (detectedDiscount > 0) document.getElementById('f-discount').value = detectedDiscount.toFixed(2);
+      renderVatBreakdown('f-vatBreakdown', p.amount || 0, vatTypeF, detectedDiscount);
       const candidates = fullText.split('\n').map(l => l.trim()).filter(l =>
         l.length > 2 && l.length < 100 &&
         !/^\d+\.?\d*$/.test(l) &&
@@ -629,38 +639,50 @@
   let vatTypeF = 'inclusive'; // scan form
   let vatTypeE = 'inclusive'; // edit form
 
-  function calcVat(amount, type) {
+  function calcVat(amount, type, discount) {
     const amt = parseFloat(amount) || 0;
+    const disc = parseFloat(discount) || 0;
+    const netAmt = amt - disc;
     if (type === 'inclusive') {
-      const vatAmt = amt * (12/112);
-      return { vatableSales: amt - vatAmt, vatAmount: vatAmt, total: amt };
+      const vatAmt = netAmt * (12/112);
+      return { gross: amt, discount: disc, netAmount: netAmt, vatableSales: netAmt - vatAmt, vatAmount: vatAmt, total: netAmt };
     } else if (type === 'exclusive') {
-      const vatAmt = amt * 0.12;
-      return { vatableSales: amt, vatAmount: vatAmt, total: amt + vatAmt };
+      const vatAmt = netAmt * 0.12;
+      return { gross: amt, discount: disc, netAmount: netAmt, vatableSales: netAmt, vatAmount: vatAmt, total: netAmt + vatAmt };
     } else {
-      return { vatableSales: 0, vatAmount: 0, total: amt, nonVat: true };
+      return { gross: amt, discount: disc, netAmount: netAmt, vatableSales: 0, vatAmount: 0, total: netAmt, nonVat: true };
     }
   }
 
   function formatPHP(n) { return '₱' + (parseFloat(n)||0).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2}); }
 
-  function renderVatBreakdown(elId, amount, type) {
+  function renderVatBreakdown(elId, amount, type, discount) {
     const el = document.getElementById(elId);
     if (!el) return;
-    const v = calcVat(amount, type);
+    const v = calcVat(amount, type, discount);
+    const discRow = v.discount > 0 ? '<div class="vat-breakdown-row" style="color:#dc2626;"><span>Less: Discount</span><span>− ' + formatPHP(v.discount) + '</span></div>' : '';
+    const grossRow = v.discount > 0 ? '<div class="vat-breakdown-row"><span>Gross Amount</span><span>' + formatPHP(v.gross) + '</span></div>' : '';
     if (type === 'non-vat') {
-      el.innerHTML = '<div class="vat-breakdown-row total"><span>Non-VAT Amount</span><span>' + formatPHP(v.total) + '</span></div>';
+      el.innerHTML = grossRow + discRow +
+        '<div class="vat-breakdown-row total"><span>Non-VAT Amount</span><span>' + formatPHP(v.total) + '</span></div>';
     } else if (type === 'inclusive') {
-      el.innerHTML =
+      el.innerHTML = grossRow + discRow +
         '<div class="vat-breakdown-row"><span>Vatable Sales (ex VAT)</span><span>' + formatPHP(v.vatableSales) + '</span></div>' +
         '<div class="vat-breakdown-row highlight"><span>VAT Amount (12%)</span><span>' + formatPHP(v.vatAmount) + '</span></div>' +
         '<div class="vat-breakdown-row total"><span>Total (VAT Inclusive)</span><span>' + formatPHP(v.total) + '</span></div>';
     } else {
-      el.innerHTML =
+      el.innerHTML = grossRow + discRow +
         '<div class="vat-breakdown-row"><span>Vatable Sales</span><span>' + formatPHP(v.vatableSales) + '</span></div>' +
         '<div class="vat-breakdown-row highlight"><span>VAT Amount (12%)</span><span>' + formatPHP(v.vatAmount) + '</span></div>' +
         '<div class="vat-breakdown-row total"><span>Total (VAT Exclusive)</span><span>' + formatPHP(v.total) + '</span></div>';
     }
+  }
+
+  function onAmountChange(prefix) {
+    const amt = document.getElementById(prefix + '-amount')?.value || 0;
+    const disc = document.getElementById(prefix + '-discount')?.value || 0;
+    const type = prefix === 'f' ? vatTypeF : vatTypeE;
+    renderVatBreakdown(prefix + '-vatBreakdown', amt, type, disc);
   }
 
   function selectVatType(type, prefix) {
@@ -673,7 +695,24 @@
     });
     const amtId = prefix === 'f' ? 'f-amount' : 'e-amount';
     const amt = document.getElementById(amtId)?.value || 0;
-    renderVatBreakdown(prefix + '-vatBreakdown', amt, type);
+    const discId = prefix + '-discount';
+    const disc = document.getElementById(discId)?.value || 0;
+    renderVatBreakdown(prefix + '-vatBreakdown', amt, type, disc);
+  }
+
+  function autoDetectDiscount(fullText) {
+    // Look for discount patterns on the receipt
+    const lines = fullText.split('\n');
+    for (const line of lines) {
+      if (/discount|less|deduction|promo|pwd|senior/i.test(line)) {
+        const match = line.match(/[\d,]+\.\d{2}/);
+        if (match) {
+          const val = parseFloat(match[0].replace(/,/g,''));
+          if (val > 0 && val < 100000) return val;
+        }
+      }
+    }
+    return 0;
   }
 
   function autoDetectVat(fullText, prefix) {
@@ -703,8 +742,9 @@
       category: selectedCat, payment: selectedPay, owner: selectedOwner,
       officialReceipt: !!document.getElementById('f-tin').value.trim(),
       vatType: vatTypeF,
-      vatableSales: calcVat(document.getElementById('f-amount').value, vatTypeF).vatableSales,
-      vatAmount: calcVat(document.getElementById('f-amount').value, vatTypeF).vatAmount,
+      discount: parseFloat(document.getElementById('f-discount').value) || 0,
+      vatableSales: calcVat(document.getElementById('f-amount').value, vatTypeF, document.getElementById('f-discount').value).vatableSales,
+      vatAmount: calcVat(document.getElementById('f-amount').value, vatTypeF, document.getElementById('f-discount').value).vatAmount,
       repaid: false,
       uploader: localStorage.getItem('xpense_uploader') || '',
       savedAt: new Date().toISOString()
@@ -718,7 +758,7 @@
 
   function resetForm() {
     vatTypeF = 'inclusive'; selectVatType('inclusive','f');
-    ['f-company','f-tin','f-address','f-amount','f-date','f-notes'].forEach(id => { document.getElementById(id).value = ''; });
+    ['f-company','f-tin','f-address','f-amount','f-discount','f-date','f-notes'].forEach(id => { document.getElementById(id).value = ''; });
     document.querySelectorAll('.chip, .pay-chip').forEach(b => b.classList.remove('selected'));
     selectedCat = ''; selectedPay = ''; selectedOwner = ''; currentImages = [];
     const p = document.getElementById('inlinePicker'); if (p) p.remove();
@@ -793,7 +833,7 @@
         '</div>' +
         (isLoan(e) ? '<button class="repaid-btn' + (e.repaid ? ' is-repaid' : '') + '" onclick="toggleRepaid(' + e.id + ')">' + (e.repaid ? '✓ Repaid — tap to undo' : 'Mark as repaid') + '</button>' : '') +
         ((e.tin||e.address||e.notes) ? '<div class="entry-sub">' + [e.tin?'TIN: '+e.tin:'', e.address, e.notes].filter(Boolean).join(' · ') + '</div>' : '') +
-      (e.vatType ? (function(){ const v=calcVat(e.amount,e.vatType); return '<div class="vat-breakdown" style="margin-top:8px;">' + (e.vatType==='non-vat' ? '<div class="vat-breakdown-row total"><span>Non-VAT Amount</span><span>'+formatPHP(v.total)+'</span></div>' : '<div class="vat-breakdown-row"><span>Vatable Sales</span><span>'+formatPHP(v.vatableSales)+'</span></div><div class="vat-breakdown-row highlight"><span>VAT (12%)</span><span>'+formatPHP(v.vatAmount)+'</span></div><div class="vat-breakdown-row total"><span>Total</span><span>'+formatPHP(v.total)+'</span></div>') + '</div>'; })() : '') +
+      (e.vatType ? (function(){ const v=calcVat(e.amount,e.vatType,e.discount||0); const dRow=v.discount>0?'<div class="vat-breakdown-row" style="color:#dc2626;"><span>Less: Discount</span><span>− '+formatPHP(v.discount)+'</span></div>':''; const gRow=v.discount>0?'<div class="vat-breakdown-row"><span>Gross Amount</span><span>'+formatPHP(v.gross)+'</span></div>':''; return '<div class="vat-breakdown" style="margin-top:8px;">' + (e.vatType==='non-vat' ? gRow+dRow+'<div class="vat-breakdown-row total"><span>Non-VAT Amount</span><span>'+formatPHP(v.total)+'</span></div>' : gRow+dRow+'<div class="vat-breakdown-row"><span>Vatable Sales</span><span>'+formatPHP(v.vatableSales)+'</span></div><div class="vat-breakdown-row highlight"><span>VAT (12%)</span><span>'+formatPHP(v.vatAmount)+'</span></div><div class="vat-breakdown-row total"><span>Total</span><span>'+formatPHP(v.total)+'</span></div>') + '</div>'; })() : '') +
         '</div>'
       ).join('');
     }
@@ -891,6 +931,7 @@
     document.getElementById('e-address').value = e.address || '';
     document.getElementById('e-amount').value = e.amount || '';
     document.getElementById('e-notes').value = e.notes || '';
+    document.getElementById('e-discount').value = e.discount || '';
     const eVatType = e.vatType || 'inclusive';
     vatTypeE = eVatType;
     ['inclusive','exclusive','non-vat'].forEach(t => {
@@ -898,7 +939,7 @@
       const btn = document.getElementById(id);
       if (btn) btn.classList.toggle('selected', t === eVatType);
     });
-    renderVatBreakdown('e-vatBreakdown', e.amount || 0, eVatType);
+    renderVatBreakdown('e-vatBreakdown', e.amount || 0, eVatType, e.discount || 0);
     document.querySelectorAll('#e-catGrid .chip').forEach(b => { b.classList.toggle('selected', b.textContent === editCat); });
     document.querySelectorAll('#e-payGrid .pay-chip').forEach(b => { b.classList.toggle('selected', b.textContent === editPay); });
     document.querySelectorAll('#e-ownerGrid .pay-chip').forEach(b => { b.classList.toggle('selected', b.textContent === editOwner); });
@@ -924,8 +965,9 @@
     entry.date = document.getElementById('e-date').value;
     entry.address = document.getElementById('e-address').value.trim();
     entry.vatType = vatTypeE;
-    entry.vatableSales = calcVat(document.getElementById('e-amount').value, vatTypeE).vatableSales;
-    entry.vatAmount = calcVat(document.getElementById('e-amount').value, vatTypeE).vatAmount;
+    entry.discount = parseFloat(document.getElementById('e-discount').value) || 0;
+    entry.vatableSales = calcVat(document.getElementById('e-amount').value, vatTypeE, document.getElementById('e-discount').value).vatableSales;
+    entry.vatAmount = calcVat(document.getElementById('e-amount').value, vatTypeE, document.getElementById('e-discount').value).vatAmount;
     entry.amount = parseFloat(document.getElementById('e-amount').value) || 0;
     entry.or = document.getElementById('e-or').value.trim();
     entry.notes = document.getElementById('e-notes').value.trim();
