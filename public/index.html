@@ -24,15 +24,6 @@
       --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     }
 
-
-    .company-picker { position:fixed; inset:0; background:rgba(0,0,0,0.5); display:flex; align-items:flex-end; justify-content:center; z-index:999; padding:1rem; }
-    .company-picker-box { background:var(--bg); border-radius:var(--radius-lg); width:100%; max-width:500px; padding:1.25rem; }
-    .company-picker-box h3 { font-size:15px; font-weight:600; margin-bottom:4px; }
-    .company-picker-box p { font-size:13px; color:var(--text-secondary); margin-bottom:1rem; }
-    .company-option { width:100%; text-align:left; padding:12px 14px; margin-bottom:8px; border:0.5px solid var(--border-md); border-radius:var(--radius-md); background:var(--bg-secondary); color:var(--text-primary); font-size:14px; cursor:pointer; font-family:var(--font); }
-    .company-option:hover { border-color:var(--border-strong); background:var(--bg-tertiary); }
-    .company-option .co-label { font-size:11px; color:var(--text-secondary); display:block; margin-bottom:2px; }
-
     @media (prefers-color-scheme: dark) {
       :root {
         --bg: #1c1c1a;
@@ -277,15 +268,6 @@
       background: #f0faf4; border: 0.5px solid #b6dfc5; color: #1a6b3a;
       display: flex;
     }
-
-    .company-picker { position:fixed; inset:0; background:rgba(0,0,0,0.5); display:flex; align-items:flex-end; justify-content:center; z-index:999; padding:1rem; }
-    .company-picker-box { background:var(--bg); border-radius:var(--radius-lg); width:100%; max-width:500px; padding:1.25rem; }
-    .company-picker-box h3 { font-size:15px; font-weight:600; margin-bottom:4px; }
-    .company-picker-box p { font-size:13px; color:var(--text-secondary); margin-bottom:1rem; }
-    .company-option { width:100%; text-align:left; padding:12px 14px; margin-bottom:8px; border:0.5px solid var(--border-md); border-radius:var(--radius-md); background:var(--bg-secondary); color:var(--text-primary); font-size:14px; cursor:pointer; font-family:var(--font); }
-    .company-option:hover { border-color:var(--border-strong); background:var(--bg-tertiary); }
-    .company-option .co-label { font-size:11px; color:var(--text-secondary); display:block; margin-bottom:2px; }
-
     @media (prefers-color-scheme: dark) {
       .clarity-alert.bad { background: #2d1a1a; border-color: #6b2a2a; color: #f5a0a0; }
       .clarity-alert.good { background: #1a2d22; border-color: #2a6b44; color: #90d4aa; }
@@ -297,15 +279,6 @@
       font-size: 11px; padding: 3px 9px; border-radius: 99px;
       background: #fff8e6; border: 0.5px solid #f5d78e; color: #7a5a00;
     }
-
-    .company-picker { position:fixed; inset:0; background:rgba(0,0,0,0.5); display:flex; align-items:flex-end; justify-content:center; z-index:999; padding:1rem; }
-    .company-picker-box { background:var(--bg); border-radius:var(--radius-lg); width:100%; max-width:500px; padding:1.25rem; }
-    .company-picker-box h3 { font-size:15px; font-weight:600; margin-bottom:4px; }
-    .company-picker-box p { font-size:13px; color:var(--text-secondary); margin-bottom:1rem; }
-    .company-option { width:100%; text-align:left; padding:12px 14px; margin-bottom:8px; border:0.5px solid var(--border-md); border-radius:var(--radius-md); background:var(--bg-secondary); color:var(--text-primary); font-size:14px; cursor:pointer; font-family:var(--font); }
-    .company-option:hover { border-color:var(--border-strong); background:var(--bg-tertiary); }
-    .company-option .co-label { font-size:11px; color:var(--text-secondary); display:block; margin-bottom:2px; }
-
     @media (prefers-color-scheme: dark) {
       .no-tin-badge { background: #2d2410; border-color: #6b4e00; color: #f5c842; }
     }
@@ -528,16 +501,6 @@
   </div>
 </div>
 
-
-<div id="companyPicker" class="company-picker" style="display:none">
-  <div class="company-picker-box">
-    <h3>Select the registered company name</h3>
-    <p>These are the top lines from the receipt. Tap the correct one.</p>
-    <div id="companyOptions"></div>
-    <button onclick="document.getElementById('companyPicker').style.display='none'" style="width:100%;padding:10px;border:0.5px solid var(--border-md);border-radius:var(--radius-md);background:transparent;color:var(--text-secondary);font-size:14px;cursor:pointer;margin-top:4px;">Enter manually</button>
-  </div>
-</div>
-
 <div class="toast" id="toast"></div>
 
 <script>
@@ -657,7 +620,9 @@
         else if (!result.success && result.detail) throw new Error(result.detail);
       }
       if (!texts.length) throw new Error('No text found. Try retaking in better lighting.');
-      const p = parseReceiptText(texts.join('\n'));
+      const fullText2 = texts.join('\n');
+      const p = parseReceiptText(fullText2);
+      const companyCandidates = fullText2.split('\n').map(l=>l.trim()).filter(l=>l.length>2&&l.length<100&&!/^(receipt no|invoice no|official receipt|date:|tin:|vat|total|amount|tel:|fax:|email|www\.)/i.test(l)).slice(0,5);
       document.getElementById('f-company').value = p.company || '';
       document.getElementById('f-tin').value = p.tin || '';
       document.getElementById('f-address').value = p.address || '';
@@ -669,7 +634,9 @@
       if (!p.company) missing.push('Company name');
       if (!p.amount) missing.push('Total amount');
       if (missing.length) showToast('Please fill in: ' + missing.join(', '));
-      else showToast(!p.tin ? 'Scanned! No TIN - non-official OR.' : 'Receipt scanned - review and save.');
+      showCompanyPicker(companyCandidates);
+      if (!p.tin) showToast('No TIN - marked as non-official OR.');
+      else showToast('Receipt scanned - pick company name above.');
     } catch(err) {
       document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
       document.getElementById('formSection').style.display = 'block';
@@ -680,16 +647,15 @@
   }
 
 
-  function showCompanyPicker(rawText) {
-    const lines = rawText.split('\n').map(l => l.trim()).filter(l => l.length > 2 && l.length < 80 && !/^\d/.test(l) && !/^(receipt|invoice|official|date|tin|vat|total|amount|tel|fax|email|www|http)/i.test(l));
-    const top = [...new Set(lines.slice(0, 8))].slice(0, 5);
-    if (!top.length) return;
+  function showCompanyPicker(candidates) {
+    if (!candidates || !candidates.length) return;
     const opts = document.getElementById('companyOptions');
-    opts.innerHTML = top.map((name, i) => {
-      const label = i === 0 ? 'First line' : i === 1 ? 'Second line' : 'Line ' + (i+1);
-      return '<button class="company-option" onclick="pickCompany(\'' + name.replace(/'/g, "\\'") + '\')">' +
-        '<span class="co-label">' + label + '</span>' + name + '</button>';
-    }).join('');
+    if (!opts) return;
+    const labels = ['1st line', '2nd line', '3rd line', '4th line', '5th line'];
+    opts.innerHTML = candidates.map((name, i) =>
+      '<button class="company-option" onclick="pickCompany(\'' + name.replace(/\\/g,'\\\\').replace(/'/g,"\\'") + '\')">' +
+      '<span class="co-label">' + (labels[i]||'Line '+(i+1)) + '</span>' + name + '</button>'
+    ).join('');
     document.getElementById('companyPicker').style.display = 'flex';
   }
 
@@ -700,11 +666,16 @@
 
   function parseReceiptText(text) {
     const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-    let company = '';
-    for (let i = 0; i < Math.min(6, lines.length); i++) {
+    // Extract top candidate lines for company name (first 6 non-numeric, non-label lines)
+    const companyCandidates = [];
+    for (let i = 0; i < Math.min(10, lines.length); i++) {
       const line = lines[i];
-      if (line.length > 3 && line.length < 80 && !/^\d/.test(line) && !/^(receipt|invoice|official|date|tin|vat|total|amount)/i.test(line)) { company = toTitleCase(line); break; }
+      if (line.length > 2 && line.length < 100 && !/^(receipt no|invoice no|official receipt|date:|tin:|vat|total|amount|tel:|fax:|email|www\.)/i.test(line)) {
+        companyCandidates.push(line);
+        if (companyCandidates.length >= 5) break;
+      }
     }
+    let company = companyCandidates.length ? toTitleCase(companyCandidates[0]) : '';
     const tinMatch = text.match(/\bTIN[:\s#]*([0-9]{3}-[0-9]{3}-[0-9]{3,4}(?:-[0-9]{3,5})?)/i) || text.match(/\b([0-9]{3}-[0-9]{3}-[0-9]{3,4}(?:-[0-9]{3,5})?)\b/);
     const tin = tinMatch ? tinMatch[1] : '';
     const orMatch = text.match(/(?:O\.?R\.?|Official Receipt|Invoice|Inv\.?|Receipt)\s*(?:No\.?|#|Number)?\s*[:\s]?\s*([A-Z0-9\-]{4,20})/i) || text.match(/(?:No\.?|#)\s*([A-Z0-9\-]{4,20})/i);
