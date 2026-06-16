@@ -83,6 +83,13 @@
     .filter-row { display: flex; gap: 8px; margin-bottom: 1rem; flex-wrap: wrap; }
     .filter-row select { flex: 1; min-width: 140px; font-size: 13px; padding: 8px 10px; }
     .entry-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; margin-bottom: 10px; }
+    .view-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .view-table th { background: var(--pink-light); color: var(--pink); text-align: left; padding: 8px 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 2px solid var(--pink); white-space: nowrap; }
+    .view-table td { padding: 8px 10px; border-bottom: 0.5px solid var(--border); vertical-align: middle; }
+    .view-table tr:hover td { background: var(--pink-light); }
+    .view-table .td-amount { font-weight: 700; color: var(--pink); white-space: nowrap; }
+    .view-table .td-del { padding: 4px; }
+    .table-wrapper { overflow-x: auto; border-radius: var(--radius); border: 0.5px solid var(--border); background: var(--bg); }
     .entry-card.repaid { opacity: 0.55; }
     .entry-card.repaid .entry-name { text-decoration: line-through; }
     .entry-card.repaid .entry-amount { text-decoration: line-through; color: var(--text3); }
@@ -248,6 +255,7 @@
     <div class="entries-header">
       <h2>All entries</h2>
       <div class="export-row">
+        <button class="export-btn" onclick="toggleView()" id="viewToggleBtn" title="Toggle view"><i class="ti ti-layout-list" id="viewToggleIcon"></i></button>
         <button class="export-btn" onclick="exportPDF()"><i class="ti ti-file-type-pdf"></i> PDF</button>
         <button class="export-btn" onclick="exportCSV()"><i class="ti ti-table-export"></i> CSV</button>
       </div>
@@ -320,7 +328,7 @@
       const r = await fetch('/api/claude', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ action: 'load' }) });
       const data = await r.json();
       if (data.success && Array.isArray(data.entries)) {
-        entries = data.entries.map(e => ({ id: e.id, company: e.company, tin: e.tin, address: e.address, amount: e.amount, date: e.date, or: e.or_number, notes: e.notes, category: e.category, payment: e.payment, owner: e.owner, officialReceipt: e.official_receipt, repaid: e.repaid, uploader: e.uploader, savedAt: e.saved_at }));
+        entries = data.entries.map(e => ({ id: e.id, company: e.company, tin: e.tin, address: e.address, amount: parseFloat(e.amount)||0, date: e.date, or: e.or_number, notes: e.notes, category: e.category, payment: e.payment, owner: e.owner, officialReceipt: e.official_receipt, repaid: e.repaid, uploader: e.uploader, savedAt: e.saved_at }));
         renderEntries(); updateStats();
       }
     } catch(err) { console.log('Supabase load error:', err); }
@@ -560,6 +568,13 @@
     document.getElementById('fileInput').value = '';
   }
 
+  let currentView = 'card';
+  function toggleView() {
+    currentView = currentView === 'card' ? 'table' : 'card';
+    document.getElementById('viewToggleIcon').className = currentView === 'card' ? 'ti ti-layout-list' : 'ti ti-table';
+    renderEntries();
+  }
+
   function renderEntries() {
     const cat = document.getElementById('filterCat').value;
     const pay = document.getElementById('filterPay').value;
@@ -567,13 +582,36 @@
     const list = document.getElementById('entriesList');
     if (!filtered.length) { list.innerHTML = '<div class="empty-state"><div style="font-size:48px;margin-bottom:10px;">🧾</div>No entries yet.<br>Scan your first receipt!</div>'; return; }
     const isLoan = e => e.category === 'Loan - Alex' || e.category === 'Loan - CJ';
+
+    if (currentView === 'table') {
+      list.innerHTML = '<div class="table-wrapper"><table class="view-table"><thead><tr>' +
+        '<th>Date</th><th>Company</th><th>Category</th><th>Payment</th><th>Owner</th><th>Amount</th><th>OR</th><th></th>' +
+        '</tr></thead><tbody>' +
+        filtered.map(e =>
+          '<tr class="' + (e.repaid ? 'repaid' : '') + '">' +
+          '<td style="white-space:nowrap;color:var(--text2);">' + (e.date||'') + '</td>' +
+          '<td><div style="font-weight:600;font-size:13px;">' + e.company + '</div>' +
+            (e.tin ? '<div style="font-size:11px;color:var(--text3);">TIN: '+e.tin+'</div>' : '') + '</td>' +
+          '<td><span class="badge">' + e.category + '</span></td>' +
+          '<td style="white-space:nowrap;"><span class="badge">' + e.payment + '</span></td>' +
+          '<td>' + (e.owner ? '<span class="badge" style="background:var(--pink-light);color:var(--pink);">'+e.owner+'</span>' : '') + '</td>' +
+          '<td class="td-amount' + (e.repaid?' repaid':'') + '">₱' + parseFloat(e.amount).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2}) + (e.repaid?' <span style="font-size:10px;color:var(--text3);">(repaid)</span>':'') + '</td>' +
+          '<td style="color:var(--text3);font-size:12px;">' + (e.or||'') + '</td>' +
+          '<td class="td-del"><button onclick="deleteEntry('+e.id+')" style="padding:3px 7px;border:1px solid #e74c3c;border-radius:6px;background:transparent;color:#e74c3c;cursor:pointer;font-size:12px;"><i class="ti ti-trash"></i></button></td>' +
+          '</tr>'
+        ).join('') +
+        '</tbody></table></div>';
+      return;
+    }
+
+    const isLoan2 = isLoan;
     list.innerHTML = filtered.map(e =>
       '<div class="entry-card' + (e.repaid ? ' repaid' : '') + '">' +
       '<div class="entry-top">' +
       '<div class="entry-name">' + e.company + '</div>' +
       '<div style="display:flex;align-items:center;gap:4px;">' +
       '<div class="entry-amount">₱' + parseFloat(e.amount).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div>' +
-      '<button class="entry-delete" onclick="deleteEntry(' + e.id + ')"><i class="ti ti-x"></i></button>' +
+      '<button class="entry-delete" onclick="deleteEntry(' + e.id + ')" title="Delete entry" style="padding:4px 8px;border:1px solid #e74c3c;border-radius:6px;color:#e74c3c;"><i class="ti ti-trash" style="font-size:14px;"></i></button>' +
       '</div></div>' +
       '<div class="entry-meta">' +
       '<span class="badge">' + e.category + '</span>' +
@@ -584,7 +622,7 @@
       (!e.officialReceipt ? '<span class="no-tin-badge">Non-official OR</span>' : '') +
       (e.uploader ? '<span class="badge">' + e.uploader + '</span>' : '') +
       '</div>' +
-      (isLoan(e) ? '<button class="repaid-btn' + (e.repaid ? ' is-repaid' : '') + '" onclick="toggleRepaid(' + e.id + ')">' + (e.repaid ? '✓ Repaid — tap to undo' : 'Mark as repaid') + '</button>' : '') +
+      (isLoan2(e) ? '<button class="repaid-btn' + (e.repaid ? ' is-repaid' : '') + '" onclick="toggleRepaid(' + e.id + ')">' + (e.repaid ? '✓ Repaid — tap to undo' : 'Mark as repaid') + '</button>' : '') +
       ((e.tin||e.address||e.notes) ? '<div class="entry-sub">' + [e.tin?'TIN: '+e.tin:'', e.address, e.notes].filter(Boolean).join(' · ') + '</div>' : '') +
       '</div>'
     ).join('');
