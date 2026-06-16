@@ -111,6 +111,11 @@
     .vat-badge.vat-inc { background:#dcfce7; color:#16a34a; border:1px solid #bbf7d0; }
     .vat-badge.vat-exc { background:#dbeafe; color:#1d4ed8; border:1px solid #bfdbfe; }
     .vat-badge.non-vat { background:#f3f4f6; color:#6b7280; border:1px solid #e5e7eb; }
+
+    .receipt-thumb { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+    .receipt-thumb a { display:block; width:56px; height:56px; border-radius:8px; overflow:hidden; border:1.5px solid var(--border2); flex-shrink:0; }
+    .receipt-thumb img { width:100%; height:100%; object-fit:cover; }
+    .receipt-upload-status { font-size:11px; color:var(--text3); margin-top:6px; display:flex; align-items:center; gap:4px; }
     .entry-delete { background: #fee2e2; border: none; cursor: pointer; color: #dc2626; font-size: 14px; padding: 4px 8px; margin-left: 4px; border-radius: 6px; }
     .entry-delete:hover { color: var(--pink); }
     .entry-edit { background: var(--pink); border: none; cursor: pointer; color: white; font-size: 14px; padding: 4px 8px; margin-left: 6px; border-radius: 6px; }
@@ -433,7 +438,7 @@
       const r = await fetch('/api/claude', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ action: 'load' }) });
       const data = await r.json();
       if (data.success && Array.isArray(data.entries)) {
-        entries = data.entries.map(e => ({ id: e.id, company: e.company, tin: e.tin, address: e.address, amount: e.amount, date: e.date, or: e.or_number, notes: e.notes, category: e.category, payment: e.payment, owner: e.owner, officialReceipt: e.official_receipt, repaid: e.repaid, uploader: e.uploader, savedAt: e.saved_at }));
+        entries = data.entries.map(e => ({ id: e.id, company: e.company, tin: e.tin, address: e.address, amount: e.amount, date: e.date, or: e.or_number, notes: e.notes, category: e.category, payment: e.payment, owner: e.owner, officialReceipt: e.official_receipt, repaid: e.repaid, uploader: e.uploader, savedAt: e.saved_at, receiptPhotos: e.receipt_photos ? JSON.parse(e.receipt_photos) : [] }));
         renderEntries(); updateStats();
       }
     } catch(err) { console.log('Supabase load error:', err); }
@@ -726,6 +731,29 @@
   }
   // ── End VAT helpers ──────────────────────────────────────────
 
+
+  async function uploadReceiptPhotos(entryId, images, month) {
+    const urls = [];
+    for (let i = 0; i < images.length; i++) {
+      try {
+        const resp = await fetch('/api/claude', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'upload-receipt',
+            imageData: images[i].dataUrl,
+            mimeType: images[i].mimeType || 'image/jpeg',
+            entryId,
+            month
+          })
+        });
+        const result = await resp.json();
+        if (result.success) urls.push(result.url);
+      } catch(e) { console.warn('Receipt upload failed:', e); }
+    }
+    return urls;
+  }
+
   function saveEntry() {
     const company = document.getElementById('f-company').value.trim();
     const amount = parseFloat(document.getElementById('f-amount').value) || 0;
@@ -750,6 +778,20 @@
       savedAt: new Date().toISOString()
     };
     entries.unshift(entry);
+    // Upload receipt photos in background
+    const entryMonth = (entry.date || new Date().toISOString().split('T')[0]).substring(0,7);
+    if (currentImages && currentImages.length > 0) {
+      showToast('Saving receipt photos...');
+      uploadReceiptPhotos(entry.id, currentImages, entryMonth).then(urls => {
+        if (urls.length > 0) {
+          entry.receiptPhotos = urls;
+          fetch('/api/claude', { method:'POST', headers:{'Content-Type':'application/json'},
+            body: JSON.stringify({ action:'update', id: entry.id, fields:{ receipt_photos: JSON.stringify(urls) } }) });
+          renderEntries();
+          showToast('Receipt photos saved! 📸');
+        }
+      });
+    }
     try { localStorage.setItem('xpense_entries', JSON.stringify(entries)); } catch(e) {}
     showToast('Saving...');
     fetch('/api/claude', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ action: 'save', entry: { id: entry.id, company: entry.company, tin: entry.tin, address: entry.address, amount: entry.amount, date: entry.date, or_number: entry.or, notes: entry.notes, category: entry.category, payment: entry.payment, owner: entry.owner, official_receipt: entry.officialReceipt, repaid: false, uploader: entry.uploader, saved_at: entry.savedAt } }) }).then(() => showToast('Expense saved! Synced ✓')).catch(() => showToast('Saved locally only.'));
@@ -834,7 +876,8 @@
         (isLoan(e) ? '<button class="repaid-btn' + (e.repaid ? ' is-repaid' : '') + '" onclick="toggleRepaid(' + e.id + ')">' + (e.repaid ? '✓ Repaid — tap to undo' : 'Mark as repaid') + '</button>' : '') +
         ((e.tin||e.address||e.notes) ? '<div class="entry-sub">' + [e.tin?'TIN: '+e.tin:'', e.address, e.notes].filter(Boolean).join(' · ') + '</div>' : '') +
       (e.vatType ? (function(){ const v=calcVat(e.amount,e.vatType,e.discount||0); const dRow=v.discount>0?'<div class="vat-breakdown-row" style="color:#dc2626;"><span>Less: Discount</span><span>− '+formatPHP(v.discount)+'</span></div>':''; const gRow=v.discount>0?'<div class="vat-breakdown-row"><span>Gross Amount</span><span>'+formatPHP(v.gross)+'</span></div>':''; return '<div class="vat-breakdown" style="margin-top:8px;">' + (e.vatType==='non-vat' ? gRow+dRow+'<div class="vat-breakdown-row total"><span>Non-VAT Amount</span><span>'+formatPHP(v.total)+'</span></div>' : gRow+dRow+'<div class="vat-breakdown-row"><span>Vatable Sales</span><span>'+formatPHP(v.vatableSales)+'</span></div><div class="vat-breakdown-row highlight"><span>VAT (12%)</span><span>'+formatPHP(v.vatAmount)+'</span></div><div class="vat-breakdown-row total"><span>Total</span><span>'+formatPHP(v.total)+'</span></div>') + '</div>'; })() : '') +
-        '</div>'
+        (e.receiptPhotos && e.receiptPhotos.length ? '<div class="receipt-thumb">' + e.receiptPhotos.map(u => '<a href="'+u+'" target="_blank"><img src="'+u+'" loading="lazy"></a>').join('') + '</div>' : '') +
+      '</div>'
       ).join('');
     }
   }
