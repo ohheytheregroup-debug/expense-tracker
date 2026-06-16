@@ -505,8 +505,9 @@
   }
 
   function initAccounts() {
-    if (!getAccounts()) {
-      // Default: one owner account
+    const existing = getAccounts();
+    // If no accounts or corrupted, reset to default
+    if (!existing || !Array.isArray(existing) || existing.length === 0) {
       saveAccounts([{ name: 'Owner', role: 'owner', password: 'oht2024' }]);
     }
   }
