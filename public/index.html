@@ -603,7 +603,7 @@
       const resp = await fetch('/api/claude', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images })
+        body: JSON.stringify({ image: dataUrl })
       });
       const data = await resp.json();
 
@@ -653,7 +653,7 @@
       const resp = await fetch('/api/claude', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ images })
+        body: JSON.stringify({ image: dataUrl })
       });
 
       const data = await resp.json();
