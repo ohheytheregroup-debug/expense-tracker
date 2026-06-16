@@ -205,10 +205,6 @@
             <label>Total amount (PHP)</label>
             <input type="text" id="f-amount" placeholder="0.00" oninput="renderVatBreakdown('f-vatBreakdown', this.value, vatTypeF)">
           </div>
-          <div class="form-group">
-            <label>OR / Invoice number</label>
-            <input type="text" id="f-or" placeholder="Optional">
-          </div>
           <div class="form-group full">
             <label>VAT Type</label>
             <div class="vat-selector">
@@ -358,7 +354,6 @@
       <div class="form-group"><label>Date</label><input type="date" id="e-date"></div>
       <div class="form-group full"><label>Address</label><textarea id="e-address" rows="2"></textarea></div>
       <div class="form-group"><label>Total amount (PHP)</label><input type="text" id="e-amount" oninput="renderVatBreakdown('e-vatBreakdown', this.value, vatTypeE)"></div>
-      <div class="form-group"><label>OR / Invoice number</label><input type="text" id="e-or"></div>
       <div class="form-group full">
         <label>VAT Type</label>
         <div class="vat-selector">
@@ -705,7 +700,6 @@
       tin: document.getElementById('f-tin').value.trim(),
       address: document.getElementById('f-address').value.trim(),
       amount, date: document.getElementById('f-date').value,
-      or: document.getElementById('f-or').value.trim(),
       notes: document.getElementById('f-notes').value.trim(),
       category: selectedCat, payment: selectedPay, owner: selectedOwner,
       officialReceipt: !!document.getElementById('f-tin').value.trim(),
@@ -725,7 +719,7 @@
 
   function resetForm() {
     vatTypeF = 'inclusive'; selectVatType('inclusive','f');
-    ['f-company','f-tin','f-address','f-amount','f-date','f-or','f-notes'].forEach(id => { document.getElementById(id).value = ''; });
+    ['f-company','f-tin','f-address','f-amount','f-date','f-notes'].forEach(id => { document.getElementById(id).value = ''; });
     document.querySelectorAll('.chip, .pay-chip').forEach(b => b.classList.remove('selected'));
     selectedCat = ''; selectedPay = ''; selectedOwner = ''; currentImages = [];
     const p = document.getElementById('inlinePicker'); if (p) p.remove();
@@ -767,7 +761,7 @@
         filtered.map(e =>
           '<tr class="' + (e.repaid ? 'repaid' : '') + '">' +
           '<td>' + (e.date || '—') + '</td>' +
-          '<td><strong>' + e.company + '</strong>' + (e.or ? '<br><span style="font-size:11px;color:var(--text3)">OR: ' + e.or + '</span>' : '') + '</td>' +
+          '<td><strong>' + e.company + '</strong>' + '' + '</td>' +
           '<td>' + e.category + '</td>' +
           '<td>' + e.payment + '</td>' +
           '<td>' + (e.owner || '—') + '</td>' +
@@ -794,8 +788,7 @@
         '<span class="badge">' + e.category + '</span>' +
         '<span class="badge">' + e.payment + '</span>' +
         (e.date ? '<span class="badge">' + e.date + '</span>' : '') +
-        (e.or ? '<span class="badge">OR: ' + e.or + '</span>' : '') +
-        (e.owner ? '<span class="badge" style="background:var(--pink-light);color:var(--pink);border-color:var(--pink);">' + e.owner + '</span>' : '') +
+          (e.owner ? '<span class="badge" style="background:var(--pink-light);color:var(--pink);border-color:var(--pink);">' + e.owner + '</span>' : '') +
         (!e.officialReceipt ? '<span class="no-tin-badge">Non-official OR</span>' : '') +
         (e.uploader ? '<span class="badge">' + e.uploader + '</span>' : '') +
         '</div>' +
@@ -898,7 +891,6 @@
     document.getElementById('e-date').value = e.date || '';
     document.getElementById('e-address').value = e.address || '';
     document.getElementById('e-amount').value = e.amount || '';
-    document.getElementById('e-or').value = e.or || '';
     document.getElementById('e-notes').value = e.notes || '';
     const eVatType = e.vatType || 'inclusive';
     vatTypeE = eVatType;
