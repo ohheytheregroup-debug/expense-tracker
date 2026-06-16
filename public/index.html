@@ -820,7 +820,9 @@
     entries.unshift(entry);
     // Capture images NOW before resetForm clears currentImages
     const imagesToUpload = [...currentImages];
+    console.log('UPLOAD DEBUG - imagesToUpload:', imagesToUpload.length, 'currentImages:', currentImages.length);
     const entryMonth = (entry.date || new Date().toISOString().split('T')[0]).substring(0,7);
+    console.log('UPLOAD DEBUG - will upload?', imagesToUpload.length);
     if (imagesToUpload.length > 0) {
       showToast('Saving receipt photos...');
       uploadReceiptPhotos(entry.id, imagesToUpload, entryMonth).then(urls => {
