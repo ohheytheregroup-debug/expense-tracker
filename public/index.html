@@ -401,11 +401,14 @@
         <hr class="divider">
 
         <span class="section-label">Payment method</span>
-        <div class="pay-grid" id="payGrid">
+        <div class="pay-grid" id="payGrid" style="grid-template-columns: repeat(2,1fr);">
           <button class="pay-chip" onclick="selectChip(this,'pay')">Cash</button>
-          <button class="pay-chip" onclick="selectChip(this,'pay')">GCash</button>
-          <button class="pay-chip" onclick="selectChip(this,'pay')">Union Bank</button>
-          <button class="pay-chip" onclick="selectChip(this,'pay')">Credit Card</button>
+          <button class="pay-chip" onclick="selectChip(this,'pay')">Gcash - Alex</button>
+          <button class="pay-chip" onclick="selectChip(this,'pay')">Gcash - CJ</button>
+          <button class="pay-chip" onclick="selectChip(this,'pay')">Union - CC</button>
+          <button class="pay-chip" onclick="selectChip(this,'pay')">Union - OHT Cafe</button>
+          <button class="pay-chip" onclick="selectChip(this,'pay')">Union - Alexsandria</button>
+          <button class="pay-chip" onclick="selectChip(this,'pay')">Metrobank - OHT Advertising</button>
         </div>
 
         <hr class="divider">
@@ -472,8 +475,13 @@
       </select>
       <select id="filterPay" onchange="renderEntries()">
         <option value="">All payment methods</option>
-        <option>Cash</option><option>GCash</option>
-        <option>Union Bank</option><option>Credit Card</option>
+        <option>Cash</option>
+        <option>Gcash - Alex</option>
+        <option>Gcash - CJ</option>
+        <option>Union - CC</option>
+        <option>Union - OHT Cafe</option>
+        <option>Union - Alexsandria</option>
+        <option>Metrobank - OHT Advertising</option>
       </select>
     </div>
 
