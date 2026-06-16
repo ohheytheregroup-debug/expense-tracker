@@ -542,7 +542,6 @@
       document.getElementById('f-address').value = p.address || '';
       document.getElementById('f-amount').value = p.amount || '';
       document.getElementById('f-date').value = p.date || new Date().toISOString().split('T')[0];
-      document.getElementById('f-or').value = p.orNumber || '';
       document.getElementById('formSection').style.display = 'block';
       autoDetectVat(fullText, 'f');
       renderVatBreakdown('f-vatBreakdown', p.amount || 0, vatTypeF);
