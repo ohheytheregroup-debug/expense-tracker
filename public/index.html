@@ -99,6 +99,18 @@
       .no-tin-badge { background: #2d2410; border-color: #6b4e00; color: #f5c842; }
       .repaid-btn.is-repaid { background: #0a2d16; color: #86efac; border-color: #166534; }
     }
+
+    .vat-selector { display:flex; gap:8px; margin-bottom:10px; }
+    .vat-btn { flex:1; padding:8px 4px; border:1.5px solid var(--border2); border-radius:8px; background:var(--bg); color:var(--text2); font-family:var(--font); font-size:12px; font-weight:600; cursor:pointer; text-align:center; transition:all 0.15s; }
+    .vat-btn.selected { border-color:var(--pink); background:var(--pink-light); color:var(--pink); }
+    .vat-breakdown { background:var(--bg2); border:1px solid var(--border); border-radius:10px; padding:10px 12px; margin-top:8px; font-size:12px; }
+    .vat-breakdown-row { display:flex; justify-content:space-between; padding:3px 0; color:var(--text2); }
+    .vat-breakdown-row.total { font-weight:700; color:var(--text); border-top:1px solid var(--border); margin-top:4px; padding-top:6px; }
+    .vat-breakdown-row.highlight { color:var(--pink); font-weight:600; }
+    .vat-badge { display:inline-block; font-size:10px; font-weight:700; padding:2px 6px; border-radius:4px; margin-left:4px; vertical-align:middle; }
+    .vat-badge.vat-inc { background:#dcfce7; color:#16a34a; border:1px solid #bbf7d0; }
+    .vat-badge.vat-exc { background:#dbeafe; color:#1d4ed8; border:1px solid #bfdbfe; }
+    .vat-badge.non-vat { background:#f3f4f6; color:#6b7280; border:1px solid #e5e7eb; }
     .entry-delete { background: #fee2e2; border: none; cursor: pointer; color: #dc2626; font-size: 14px; padding: 4px 8px; margin-left: 4px; border-radius: 6px; }
     .entry-delete:hover { color: var(--pink); }
     .entry-edit { background: var(--pink); border: none; cursor: pointer; color: white; font-size: 14px; padding: 4px 8px; margin-left: 6px; border-radius: 6px; }
@@ -191,11 +203,20 @@
           </div>
           <div class="form-group">
             <label>Total amount (PHP)</label>
-            <input type="text" id="f-amount" placeholder="0.00">
+            <input type="text" id="f-amount" placeholder="0.00" oninput="renderVatBreakdown('f-vatBreakdown', this.value, vatTypeF)">
           </div>
           <div class="form-group">
             <label>OR / Invoice number</label>
             <input type="text" id="f-or" placeholder="Optional">
+          </div>
+          <div class="form-group full">
+            <label>VAT Type</label>
+            <div class="vat-selector">
+              <button class="vat-btn selected" onclick="selectVatType('inclusive','f')" id="f-vat-inclusive">VAT Inclusive</button>
+              <button class="vat-btn" onclick="selectVatType('exclusive','f')" id="f-vat-exclusive">VAT Exclusive</button>
+              <button class="vat-btn" onclick="selectVatType('non-vat','f')" id="f-vat-nonvat">Non-VAT</button>
+            </div>
+            <div class="vat-breakdown" id="f-vatBreakdown"></div>
           </div>
           <div class="form-group full">
             <label>Notes</label>
@@ -336,8 +357,17 @@
       <div class="form-group"><label>TIN</label><input type="text" id="e-tin"></div>
       <div class="form-group"><label>Date</label><input type="date" id="e-date"></div>
       <div class="form-group full"><label>Address</label><textarea id="e-address" rows="2"></textarea></div>
-      <div class="form-group"><label>Total amount (PHP)</label><input type="text" id="e-amount"></div>
+      <div class="form-group"><label>Total amount (PHP)</label><input type="text" id="e-amount" oninput="renderVatBreakdown('e-vatBreakdown', this.value, vatTypeE)"></div>
       <div class="form-group"><label>OR / Invoice number</label><input type="text" id="e-or"></div>
+      <div class="form-group full">
+        <label>VAT Type</label>
+        <div class="vat-selector">
+          <button class="vat-btn selected" onclick="selectVatType('inclusive','e')" id="e-vat-inclusive">VAT Inclusive</button>
+          <button class="vat-btn" onclick="selectVatType('exclusive','e')" id="e-vat-exclusive">VAT Exclusive</button>
+          <button class="vat-btn" onclick="selectVatType('non-vat','e')" id="e-vat-nonvat">Non-VAT</button>
+        </div>
+        <div class="vat-breakdown" id="e-vatBreakdown"></div>
+      </div>
       <div class="form-group full"><label>Notes</label><input type="text" id="e-notes"></div>
     </div>
     <div style="margin-bottom:12px;">
@@ -519,6 +549,8 @@
       document.getElementById('f-date').value = p.date || new Date().toISOString().split('T')[0];
       document.getElementById('f-or').value = p.orNumber || '';
       document.getElementById('formSection').style.display = 'block';
+      autoDetectVat(fullText, 'f');
+      renderVatBreakdown('f-vatBreakdown', p.amount || 0, vatTypeF);
       const candidates = fullText.split('\n').map(l => l.trim()).filter(l =>
         l.length > 2 && l.length < 100 &&
         !/^\d+\.?\d*$/.test(l) &&
@@ -598,6 +630,69 @@
     else selectedOwner = el.textContent;
   }
 
+
+  // ── VAT helpers ──────────────────────────────────────────────
+  let vatTypeF = 'inclusive'; // scan form
+  let vatTypeE = 'inclusive'; // edit form
+
+  function calcVat(amount, type) {
+    const amt = parseFloat(amount) || 0;
+    if (type === 'inclusive') {
+      const vatAmt = amt * (12/112);
+      return { vatableSales: amt - vatAmt, vatAmount: vatAmt, total: amt };
+    } else if (type === 'exclusive') {
+      const vatAmt = amt * 0.12;
+      return { vatableSales: amt, vatAmount: vatAmt, total: amt + vatAmt };
+    } else {
+      return { vatableSales: 0, vatAmount: 0, total: amt, nonVat: true };
+    }
+  }
+
+  function formatPHP(n) { return '₱' + (parseFloat(n)||0).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+
+  function renderVatBreakdown(elId, amount, type) {
+    const el = document.getElementById(elId);
+    if (!el) return;
+    const v = calcVat(amount, type);
+    if (type === 'non-vat') {
+      el.innerHTML = '<div class="vat-breakdown-row total"><span>Non-VAT Amount</span><span>' + formatPHP(v.total) + '</span></div>';
+    } else if (type === 'inclusive') {
+      el.innerHTML =
+        '<div class="vat-breakdown-row"><span>Vatable Sales (ex VAT)</span><span>' + formatPHP(v.vatableSales) + '</span></div>' +
+        '<div class="vat-breakdown-row highlight"><span>VAT Amount (12%)</span><span>' + formatPHP(v.vatAmount) + '</span></div>' +
+        '<div class="vat-breakdown-row total"><span>Total (VAT Inclusive)</span><span>' + formatPHP(v.total) + '</span></div>';
+    } else {
+      el.innerHTML =
+        '<div class="vat-breakdown-row"><span>Vatable Sales</span><span>' + formatPHP(v.vatableSales) + '</span></div>' +
+        '<div class="vat-breakdown-row highlight"><span>VAT Amount (12%)</span><span>' + formatPHP(v.vatAmount) + '</span></div>' +
+        '<div class="vat-breakdown-row total"><span>Total (VAT Exclusive)</span><span>' + formatPHP(v.total) + '</span></div>';
+    }
+  }
+
+  function selectVatType(type, prefix) {
+    if (prefix === 'f') vatTypeF = type;
+    else vatTypeE = type;
+    ['inclusive','exclusive','non-vat'].forEach(t => {
+      const id = prefix + '-vat-' + (t === 'non-vat' ? 'nonvat' : t);
+      const btn = document.getElementById(id);
+      if (btn) btn.classList.toggle('selected', t === type);
+    });
+    const amtId = prefix === 'f' ? 'f-amount' : 'e-amount';
+    const amt = document.getElementById(amtId)?.value || 0;
+    renderVatBreakdown(prefix + '-vatBreakdown', amt, type);
+  }
+
+  function autoDetectVat(fullText, prefix) {
+    const t = fullText.toLowerCase();
+    let detected = 'inclusive'; // default
+    if (/non.?vat|non vatable|not vat|exempt/i.test(t)) detected = 'non-vat';
+    else if (/vat exclusive|exclusive of vat|excl.*vat|vat excl/i.test(t)) detected = 'exclusive';
+    else if (/vatable sales|vat inclusive|incl.*vat|vat incl|output tax|12% vat/i.test(t)) detected = 'inclusive';
+    selectVatType(detected, prefix);
+    return detected;
+  }
+  // ── End VAT helpers ──────────────────────────────────────────
+
   function saveEntry() {
     const company = document.getElementById('f-company').value.trim();
     const amount = parseFloat(document.getElementById('f-amount').value) || 0;
@@ -614,6 +709,9 @@
       notes: document.getElementById('f-notes').value.trim(),
       category: selectedCat, payment: selectedPay, owner: selectedOwner,
       officialReceipt: !!document.getElementById('f-tin').value.trim(),
+      vatType: vatTypeF,
+      vatableSales: calcVat(document.getElementById('f-amount').value, vatTypeF).vatableSales,
+      vatAmount: calcVat(document.getElementById('f-amount').value, vatTypeF).vatAmount,
       repaid: false,
       uploader: localStorage.getItem('xpense_uploader') || '',
       savedAt: new Date().toISOString()
@@ -626,6 +724,7 @@
   }
 
   function resetForm() {
+    vatTypeF = 'inclusive'; selectVatType('inclusive','f');
     ['f-company','f-tin','f-address','f-amount','f-date','f-or','f-notes'].forEach(id => { document.getElementById(id).value = ''; });
     document.querySelectorAll('.chip, .pay-chip').forEach(b => b.classList.remove('selected'));
     selectedCat = ''; selectedPay = ''; selectedOwner = ''; currentImages = [];
@@ -687,7 +786,7 @@
         '<div class="entry-top">' +
         '<div class="entry-name">' + e.company + '</div>' +
         '<div style="display:flex;align-items:center;gap:4px;">' +
-        '<div class="entry-amount">₱' + parseFloat(e.amount).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div>' +
+        '<div class="entry-amount">₱' + parseFloat(e.amount).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2}) + (e.vatType==='non-vat'?'<span class="vat-badge non-vat">Non-VAT</span>':e.vatType==='exclusive'?'<span class="vat-badge vat-exc">VAT Excl</span>':e.vatType?'<span class="vat-badge vat-inc">VAT Incl</span>':'') + '</div>' +
         '<button class="entry-edit" title="Edit" onclick="openEdit(' + e.id + ')">✏️</button>' +
         '<button class="entry-delete" title="Delete" onclick="deleteEntry(' + e.id + ')">🗑️</button>' +
         '</div></div>' +
@@ -702,6 +801,7 @@
         '</div>' +
         (isLoan(e) ? '<button class="repaid-btn' + (e.repaid ? ' is-repaid' : '') + '" onclick="toggleRepaid(' + e.id + ')">' + (e.repaid ? '✓ Repaid — tap to undo' : 'Mark as repaid') + '</button>' : '') +
         ((e.tin||e.address||e.notes) ? '<div class="entry-sub">' + [e.tin?'TIN: '+e.tin:'', e.address, e.notes].filter(Boolean).join(' · ') + '</div>' : '') +
+      (e.vatType ? (function(){ const v=calcVat(e.amount,e.vatType); return '<div class="vat-breakdown" style="margin-top:8px;">' + (e.vatType==='non-vat' ? '<div class="vat-breakdown-row total"><span>Non-VAT Amount</span><span>'+formatPHP(v.total)+'</span></div>' : '<div class="vat-breakdown-row"><span>Vatable Sales</span><span>'+formatPHP(v.vatableSales)+'</span></div><div class="vat-breakdown-row highlight"><span>VAT (12%)</span><span>'+formatPHP(v.vatAmount)+'</span></div><div class="vat-breakdown-row total"><span>Total</span><span>'+formatPHP(v.total)+'</span></div>') + '</div>'; })() : '') +
         '</div>'
       ).join('');
     }
@@ -800,6 +900,14 @@
     document.getElementById('e-amount').value = e.amount || '';
     document.getElementById('e-or').value = e.or || '';
     document.getElementById('e-notes').value = e.notes || '';
+    const eVatType = e.vatType || 'inclusive';
+    vatTypeE = eVatType;
+    ['inclusive','exclusive','non-vat'].forEach(t => {
+      const id = 'e-vat-' + (t === 'non-vat' ? 'nonvat' : t);
+      const btn = document.getElementById(id);
+      if (btn) btn.classList.toggle('selected', t === eVatType);
+    });
+    renderVatBreakdown('e-vatBreakdown', e.amount || 0, eVatType);
     document.querySelectorAll('#e-catGrid .chip').forEach(b => { b.classList.toggle('selected', b.textContent === editCat); });
     document.querySelectorAll('#e-payGrid .pay-chip').forEach(b => { b.classList.toggle('selected', b.textContent === editPay); });
     document.querySelectorAll('#e-ownerGrid .pay-chip').forEach(b => { b.classList.toggle('selected', b.textContent === editOwner); });
