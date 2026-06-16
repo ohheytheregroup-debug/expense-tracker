@@ -178,8 +178,8 @@
   <div class="login-card">
     <h2>👋 Sign in</h2>
     <div class="login-field">
-      <label>Account</label>
-      <select id="loginAccount"></select>
+      <label>Account name</label>
+      <input type="text" id="loginAccount" placeholder="Enter your name" onkeydown="if(event.key==='Enter')document.getElementById('loginPassword').focus()">
     </div>
     <div class="login-field">
       <label>Password</label>
@@ -511,18 +511,15 @@
     }
   }
 
-  function renderLoginAccounts() {
-    const accs = getAccounts() || [];
-    const sel = document.getElementById('loginAccount');
-    sel.innerHTML = accs.map((a,i) => `<option value="${i}">${a.name} (${a.role})</option>`).join('');
-  }
+  function renderLoginAccounts() { /* no-op: now text input */ }
 
   function doLogin() {
     const accs = getAccounts() || [];
-    const idx = parseInt(document.getElementById('loginAccount').value);
+    const name = document.getElementById('loginAccount').value.trim();
     const pass = document.getElementById('loginPassword').value;
-    const acc = accs[idx];
-    if (!acc) return;
+    if (!name) { document.getElementById('loginError').textContent = 'Please enter your name.'; return; }
+    const acc = accs.find(a => a.name.toLowerCase() === name.toLowerCase());
+    if (!acc) { document.getElementById('loginError').textContent = 'Account not found.'; return; }
     if (acc.password !== pass) {
       document.getElementById('loginError').textContent = 'Incorrect password. Try again.';
       document.getElementById('loginPassword').value = '';
