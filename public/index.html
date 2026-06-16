@@ -186,6 +186,9 @@
     <button class="scan-btn" id="scanBtn" onclick="scanReceipt()" disabled>
       <i class="ti ti-scan"></i> Extract receipt data
     </button>
+    <button class="scan-btn" id="manualBtn" onclick="openManualEntry()" style="background:var(--bg);color:var(--pink);border:1.5px solid var(--pink);margin-top:8px;">
+      <i class="ti ti-pencil-plus"></i> Add manually (no receipt)
+    </button>
 
     <div id="formSection" style="display:none">
       <div class="card">
@@ -752,6 +755,28 @@
       } catch(e) { console.warn('Receipt upload failed:', e); }
     }
     return urls;
+  }
+
+  function openManualEntry() {
+    // Reset form and show it directly without scanning
+    ['f-company','f-tin','f-address','f-amount','f-discount','f-notes'].forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.value = '';
+    });
+    document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+    vatTypeF = 'inclusive';
+    selectVatType('inclusive', 'f');
+    renderVatBreakdown('f-vatBreakdown', 0, 'inclusive', 0);
+    document.querySelectorAll('#catGrid .chip').forEach(b => b.classList.remove('selected'));
+    document.querySelectorAll('#payGrid .pay-chip').forEach(b => b.classList.remove('selected'));
+    document.querySelectorAll('#ownerGrid .pay-chip').forEach(b => b.classList.remove('selected'));
+    selectedCat = ''; selectedPay = ''; selectedOwner = '';
+    currentImages = [];
+    document.getElementById('previewThumbs').innerHTML = '';
+    document.getElementById('previewStrip').style.display = 'none';
+    document.getElementById('formSection').style.display = 'block';
+    document.getElementById('f-company').focus();
+    showToast('Fill in the details manually.');
   }
 
   function saveEntry() {
