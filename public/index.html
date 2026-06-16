@@ -264,7 +264,7 @@
       <div class="stat-card"><div class="stat-label">Top category</div><div class="stat-value" id="statTop" style="font-size:13px;padding-top:3px;">—</div></div>
     </div>
     <div class="entries-header">
-      <h2>All entries <span style="font-size:10px;color:#ccc;">v9</span></h2>
+      <h2>All entries</h2>
       <div class="export-row">
         <button class="view-toggle-btn" id="viewToggleBtn" onclick="toggleViewMode()"><i class="ti ti-table" id="viewToggleIcon"></i> <span id="viewToggleLabel">Table</span></button>
         <button class="export-btn" onclick="exportPDF()"><i class="ti ti-file-type-pdf"></i> PDF</button>
@@ -675,8 +675,8 @@
           '<td style="text-align:right;font-weight:700;color:var(--pink)">₱' + parseFloat(e.amount).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</td>' +
           '<td><div class="tbl-actions">' +
           (isLoan(e) ? '<button title="' + (e.repaid ? 'Undo repaid' : 'Mark repaid') + '" onclick="toggleRepaid(' + e.id + ')"><i class="ti ti-' + (e.repaid ? 'rotate-clockwise' : 'check') + '"></i></button>' : '') +
-          '<button title="Edit" onclick="openEdit(' + e.id + ')"><i class="ti ti-pencil"></i></button>' +
-          '<button title="Delete" onclick="deleteEntry(' + e.id + ')"><i class="ti ti-x"></i></button>' +
+          '<button title="Edit" onclick="openEdit(' + e.id + ')">✏️</button>' +
+          '<button title="Delete" onclick="deleteEntry(' + e.id + ')">🗑️</button>' +
           '</div></td>' +
           '</tr>'
         ).join('') +
@@ -688,8 +688,8 @@
         '<div class="entry-name">' + e.company + '</div>' +
         '<div style="display:flex;align-items:center;gap:4px;">' +
         '<div class="entry-amount">₱' + parseFloat(e.amount).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div>' +
-        '<button class="entry-edit" title="Edit" onclick="openEdit(' + e.id + ')"><i class="ti ti-pencil"></i></button>' +
-        '<button class="entry-delete" title="Delete" onclick="deleteEntry(' + e.id + ')"><i class="ti ti-x"></i></button>' +
+        '<button class="entry-edit" title="Edit" onclick="openEdit(' + e.id + ')">✏️</button>' +
+        '<button class="entry-delete" title="Delete" onclick="deleteEntry(' + e.id + ')">🗑️</button>' +
         '</div></div>' +
         '<div class="entry-meta">' +
         '<span class="badge">' + e.category + '</span>' +
