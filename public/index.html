@@ -654,24 +654,25 @@
 
 
   function showCompanyPicker(candidates) {
+    let old = document.getElementById('inlinePicker');
+    if (old) old.remove();
     if (!candidates || !candidates.length) return;
-    const opts = document.getElementById('companyOptions');
-    if (!opts) return;
-    const labels = ['1st line', '2nd line', '3rd line', '4th line', '5th line'];
-    opts.innerHTML = candidates.map((name, i) => {
-      const safe = name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
-      return '<button class="company-option" onclick="pickCompany(\'' + safe + '\')">' +
-        '<span class="co-label">' + (labels[i]||'Line '+(i+1)) + '</span>' + name + '</button>';
-    }).join('');
-    const picker = document.getElementById('companyPicker');
-    picker.style.display = 'flex';
-    picker.style.alignItems = 'flex-end';
-    picker.style.justifyContent = 'center';
+    const anchor = document.getElementById('f-company').parentNode;
+    const div = document.createElement('div');
+    div.id = 'inlinePicker';
+    div.style.cssText = 'margin-top:8px;margin-bottom:4px;';
+    div.innerHTML = '<p style="font-size:12px;color:var(--text-secondary);margin-bottom:6px;font-weight:600;letter-spacing:0.04em;">TAP THE CORRECT COMPANY NAME:</p>' +
+      candidates.map(name =>
+        '<button onclick="pickCompany(\'' + name.replace(/\\/g,'\\\\').replace(/'/g,"\\'") + '\')" style="display:block;width:100%;text-align:left;padding:11px 14px;margin-bottom:6px;border:0.5px solid var(--border-md);border-radius:8px;background:var(--bg-secondary);color:var(--text-primary);font-size:14px;cursor:pointer;font-family:var(--font);">' + name + '</button>'
+      ).join('');
+    anchor.appendChild(div);
+    anchor.scrollIntoView({behavior:'smooth', block:'start'});
   }
 
   function pickCompany(name) {
     document.getElementById('f-company').value = name;
-    document.getElementById('companyPicker').style.display = 'none';
+    const p = document.getElementById('inlinePicker');
+    if (p) p.remove();
   }
 
   function parseReceiptText(text) {
