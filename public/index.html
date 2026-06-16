@@ -741,19 +741,32 @@
     const urls = [];
     for (let i = 0; i < images.length; i++) {
       try {
-        const resp = await fetch('/api/claude', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: 'upload-receipt',
-            imageData: images[i].dataUrl,
-            mimeType: images[i].mimeType || 'image/jpeg',
-            entryId,
-            month
-          })
-        });
-        const result = await resp.json();
-        if (result.success) urls.push(result.url);
+        const img = images[i];
+        const mimeType = img.mimeType || 'image/jpeg';
+        const ext = mimeType === 'image/png' ? 'png' : 'jpg';
+        const filename = `${month}/${entryId}_${i}_${Date.now()}.${ext}`;
+        // Convert base64 dataUrl to blob for direct browser upload
+        const res = await fetch(img.dataUrl);
+        const blob = await res.blob();
+        const uploadResp = await fetch(
+          `${SUPABASE_URL}/storage/v1/object/receipts/${filename}`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': mimeType,
+              'apikey': SUPABASE_KEY,
+              'Authorization': `Bearer ${SUPABASE_KEY}`,
+            },
+            body: blob
+          }
+        );
+        if (uploadResp.ok) {
+          const publicUrl = `${SUPABASE_URL}/storage/v1/object/public/receipts/${filename}`;
+          urls.push(publicUrl);
+        } else {
+          const err = await uploadResp.text();
+          console.warn('Upload failed:', err);
+        }
       } catch(e) { console.warn('Receipt upload failed:', e); }
     }
     return urls;
