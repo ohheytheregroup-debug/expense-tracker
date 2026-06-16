@@ -634,7 +634,9 @@
       if (!p.company) missing.push('Company name');
       if (!p.amount) missing.push('Total amount');
       if (missing.length) showToast('Please fill in: ' + missing.join(', '));
-      showCompanyPicker(companyCandidates);
+      const allLines = texts.join('\n').split('\n').map(l=>l.trim()).filter(l=>l.length>2&&l.length<100&&!/^(receipt no|invoice no|official receipt|date:|tin:|vat|total|amount|tel:|fax:|email|www\.|no\.|php|\u20b1)/i.test(l)&&!/^\d+\.?\d*$/.test(l));
+      const topCandidates = [...new Set(allLines)].slice(0,5);
+      showCompanyPicker(topCandidates);
       if (!p.tin) showToast('No TIN - marked as non-official OR.');
       else showToast('Receipt scanned - pick company name above.');
     } catch(err) {
@@ -652,11 +654,15 @@
     const opts = document.getElementById('companyOptions');
     if (!opts) return;
     const labels = ['1st line', '2nd line', '3rd line', '4th line', '5th line'];
-    opts.innerHTML = candidates.map((name, i) =>
-      '<button class="company-option" onclick="pickCompany(\'' + name.replace(/\\/g,'\\\\').replace(/'/g,"\\'") + '\')">' +
-      '<span class="co-label">' + (labels[i]||'Line '+(i+1)) + '</span>' + name + '</button>'
-    ).join('');
-    document.getElementById('companyPicker').style.display = 'flex';
+    opts.innerHTML = candidates.map((name, i) => {
+      const safe = name.replace(/\\/g,'\\\\').replace(/'/g,"\\'");
+      return '<button class="company-option" onclick="pickCompany(\'' + safe + '\')">' +
+        '<span class="co-label">' + (labels[i]||'Line '+(i+1)) + '</span>' + name + '</button>';
+    }).join('');
+    const picker = document.getElementById('companyPicker');
+    picker.style.display = 'flex';
+    picker.style.alignItems = 'flex-end';
+    picker.style.justifyContent = 'center';
   }
 
   function pickCompany(name) {
