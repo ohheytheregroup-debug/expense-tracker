@@ -541,20 +541,24 @@
     const readers = files.map(file => new Promise(resolve => {
       const reader = new FileReader();
       reader.onload = ev => {
-        // Convert any format (including HEIC) to JPEG via canvas
         const img = new Image();
         img.onload = () => {
           const canvas = document.createElement('canvas');
-          canvas.width = img.width;
-          canvas.height = img.height;
-          canvas.getContext('2d').drawImage(img, 0, 0);
-          const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.92);
+          // Resize to max 1200px on longest side to keep payload small
+          const MAX = 1200;
+          let w = img.width, h = img.height;
+          if (w > MAX || h > MAX) {
+            if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+            else { w = Math.round(w * MAX / h); h = MAX; }
+          }
+          canvas.width = w;
+          canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          // Use 0.7 quality JPEG to stay well under 4MB limit
+          const jpegDataUrl = canvas.toDataURL('image/jpeg', 0.7);
           resolve({ dataUrl: jpegDataUrl, mimeType: 'image/jpeg' });
         };
-        img.onerror = () => {
-          // Fallback: use original if canvas fails
-          resolve({ dataUrl: ev.target.result, mimeType: 'image/jpeg' });
-        };
+        img.onerror = () => resolve({ dataUrl: ev.target.result, mimeType: 'image/jpeg' });
         img.src = ev.target.result;
       };
       reader.readAsDataURL(file);
