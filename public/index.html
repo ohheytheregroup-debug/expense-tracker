@@ -1,0 +1,710 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Expense Tracker</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3.34.0/tabler-icons.min.css">
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #ffffff;
+      --bg-secondary: #f7f7f5;
+      --bg-tertiary: #f0efeb;
+      --text-primary: #1a1a18;
+      --text-secondary: #6b6b67;
+      --text-tertiary: #9e9e9a;
+      --border: rgba(0,0,0,0.10);
+      --border-md: rgba(0,0,0,0.18);
+      --border-strong: rgba(0,0,0,0.28);
+      --accent: #1a1a18;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #1c1c1a;
+        --bg-secondary: #252523;
+        --bg-tertiary: #2e2e2c;
+        --text-primary: #f0efeb;
+        --text-secondary: #9e9e9a;
+        --text-tertiary: #6b6b67;
+        --border: rgba(255,255,255,0.08);
+        --border-md: rgba(255,255,255,0.14);
+        --border-strong: rgba(255,255,255,0.24);
+        --accent: #f0efeb;
+      }
+    }
+
+    body {
+      font-family: var(--font);
+      background: var(--bg-tertiary);
+      color: var(--text-primary);
+      min-height: 100vh;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    .topbar {
+      background: var(--bg);
+      border-bottom: 0.5px solid var(--border);
+      padding: 14px 20px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      position: sticky;
+      top: 0;
+      z-index: 10;
+    }
+    .topbar-logo { font-size: 16px; font-weight: 600; color: var(--text-primary); }
+    .topbar-sub { font-size: 13px; color: var(--text-secondary); margin-left: auto; }
+
+    .container { max-width: 780px; margin: 0 auto; padding: 1.5rem 1rem 4rem; }
+
+    .tabs {
+      display: flex;
+      background: var(--bg);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+    }
+    .tab {
+      flex: 1; padding: 11px 8px; font-size: 13px; font-weight: 400;
+      background: transparent; border: none; cursor: pointer;
+      color: var(--text-secondary); display: flex; align-items: center;
+      justify-content: center; gap: 6px; transition: background 0.15s;
+    }
+    .tab.active { background: var(--bg-secondary); color: var(--text-primary); font-weight: 500; }
+    .tab:not(:last-child) { border-right: 0.5px solid var(--border); }
+    .tab i { font-size: 16px; }
+
+    .panel { display: none; }
+    .panel.active { display: block; }
+
+    .card {
+      background: var(--bg);
+      border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg);
+      padding: 1.25rem;
+      margin-bottom: 1rem;
+    }
+
+    .upload-zone {
+      border: 1.5px dashed var(--border-md);
+      border-radius: var(--radius-lg);
+      padding: 2.5rem 1rem;
+      text-align: center;
+      cursor: pointer;
+      transition: background 0.15s;
+      margin-bottom: 1rem;
+    }
+    .upload-zone:hover { background: var(--bg-secondary); }
+    .upload-zone i { font-size: 36px; color: var(--text-tertiary); display: block; margin-bottom: 10px; }
+    .upload-zone p { font-size: 15px; color: var(--text-secondary); }
+    .upload-zone span { font-size: 12px; color: var(--text-tertiary); }
+    #fileInput { display: none; }
+
+    #previewImg {
+      width: 100%; max-height: 240px; object-fit: contain;
+      border-radius: var(--radius-md); border: 0.5px solid var(--border);
+      margin-bottom: 1rem; display: none;
+    }
+
+    .scan-btn {
+      width: 100%; padding: 12px; font-size: 15px; font-weight: 500;
+      border-radius: var(--radius-md); border: none;
+      background: var(--accent); color: var(--bg);
+      cursor: pointer; display: flex; align-items: center;
+      justify-content: center; gap: 8px; margin-bottom: 1.5rem;
+      transition: opacity 0.15s;
+    }
+    .scan-btn:disabled { opacity: 0.35; cursor: not-allowed; }
+    .scan-btn i { font-size: 18px; }
+
+    .section-label {
+      font-size: 12px; color: var(--text-secondary);
+      font-weight: 600; letter-spacing: 0.04em;
+      text-transform: uppercase; margin-bottom: 8px; display: block;
+    }
+
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 1.25rem; }
+    .form-group { display: flex; flex-direction: column; gap: 5px; }
+    .form-group.full { grid-column: 1 / -1; }
+    label { font-size: 12px; color: var(--text-secondary); font-weight: 500; }
+
+    input[type=text], input[type=date], select, textarea {
+      font-size: 14px; padding: 9px 11px;
+      border-radius: var(--radius-md);
+      border: 0.5px solid var(--border-md);
+      background: var(--bg-secondary);
+      color: var(--text-primary);
+      width: 100%; font-family: var(--font);
+      transition: border-color 0.15s;
+      outline: none;
+    }
+    input:focus, select:focus, textarea:focus {
+      border-color: var(--border-strong);
+    }
+    textarea { resize: vertical; min-height: 64px; }
+
+    .chip-grid { display: flex; flex-wrap: wrap; gap: 7px; margin-bottom: 1.25rem; }
+    .chip {
+      padding: 7px 13px; font-size: 13px;
+      border: 0.5px solid var(--border-md);
+      border-radius: 99px; background: var(--bg-secondary);
+      color: var(--text-secondary); cursor: pointer;
+      transition: all 0.15s;
+    }
+    .chip.selected {
+      border-color: var(--accent);
+      background: var(--accent); color: var(--bg);
+    }
+
+    .pay-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 1.5rem; }
+    .pay-chip {
+      padding: 9px 4px; font-size: 12px; font-weight: 500;
+      border: 0.5px solid var(--border-md);
+      border-radius: var(--radius-md); background: var(--bg-secondary);
+      color: var(--text-secondary); cursor: pointer; text-align: center;
+      transition: all 0.15s;
+    }
+    .pay-chip.selected { border-color: var(--accent); background: var(--accent); color: var(--bg); }
+
+    .save-btn {
+      width: 100%; padding: 11px; font-size: 15px; font-weight: 500;
+      border-radius: var(--radius-md); border: 0.5px solid var(--border-md);
+      background: var(--bg-secondary); color: var(--text-primary);
+      cursor: pointer; display: flex; align-items: center;
+      justify-content: center; gap: 8px; transition: background 0.15s;
+    }
+    .save-btn:hover { background: var(--bg-tertiary); }
+
+    .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 1.25rem; }
+    .stat-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius-md); padding: 14px 16px; }
+    .stat-label { font-size: 11px; color: var(--text-secondary); margin-bottom: 5px; font-weight: 500; text-transform: uppercase; letter-spacing: 0.04em; }
+    .stat-value { font-size: 20px; font-weight: 600; color: var(--text-primary); }
+
+    .entries-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 1rem; }
+    .entries-header h2 { font-size: 16px; font-weight: 600; }
+    .export-row { display: flex; gap: 8px; }
+    .export-btn {
+      padding: 7px 13px; font-size: 13px;
+      border: 0.5px solid var(--border-md);
+      border-radius: var(--radius-md); background: var(--bg);
+      color: var(--text-secondary); cursor: pointer;
+      display: flex; align-items: center; gap: 6px; transition: all 0.15s;
+    }
+    .export-btn:hover { background: var(--bg-secondary); color: var(--text-primary); }
+
+    .filter-row { display: flex; gap: 8px; margin-bottom: 1rem; flex-wrap: wrap; }
+    .filter-row select { flex: 1; min-width: 140px; font-size: 13px; padding: 8px 10px; }
+
+    .entry-card {
+      background: var(--bg); border: 0.5px solid var(--border);
+      border-radius: var(--radius-lg); padding: 1rem 1.25rem; margin-bottom: 8px;
+    }
+    .entry-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 8px; }
+    .entry-name { font-size: 15px; font-weight: 500; }
+    .entry-amount { font-size: 16px; font-weight: 600; }
+    .entry-meta { display: flex; gap: 6px; flex-wrap: wrap; }
+    .badge {
+      font-size: 11px; padding: 3px 9px; border-radius: 99px;
+      border: 0.5px solid var(--border); color: var(--text-secondary);
+      background: var(--bg-secondary);
+    }
+    .entry-sub { font-size: 12px; color: var(--text-tertiary); margin-top: 6px; }
+    .entry-delete {
+      background: none; border: none; cursor: pointer;
+      color: var(--text-tertiary); font-size: 16px; padding: 2px;
+      margin-left: 8px; line-height: 1;
+    }
+    .entry-delete:hover { color: #c0392b; }
+
+    .empty-state { text-align: center; padding: 3.5rem 1rem; color: var(--text-tertiary); font-size: 14px; }
+    .empty-state i { font-size: 40px; display: block; margin-bottom: 10px; }
+
+    .gs-setup { margin-bottom: 1rem; }
+    .gs-setup .field { margin-bottom: 12px; }
+    .gs-setup .field label { font-size: 13px; color: var(--text-secondary); display: block; margin-bottom: 5px; font-weight: 500; }
+    .gs-setup small { font-size: 12px; color: var(--text-tertiary); display: block; margin-top: 4px; }
+    .gs-save-btn {
+      padding: 9px 18px; font-size: 14px;
+      border: 0.5px solid var(--border-md);
+      border-radius: var(--radius-md); background: var(--accent);
+      color: var(--bg); cursor: pointer; font-weight: 500;
+    }
+
+    .toast {
+      position: fixed; bottom: 1.5rem; left: 50%; transform: translateX(-50%);
+      background: var(--text-primary); color: var(--bg);
+      padding: 11px 20px; border-radius: var(--radius-md);
+      font-size: 14px; opacity: 0; pointer-events: none;
+      transition: opacity 0.3s; z-index: 999; white-space: nowrap;
+    }
+    .toast.show { opacity: 1; }
+
+    .spinner {
+      display: inline-block; width: 18px; height: 18px;
+      border: 2px solid rgba(255,255,255,0.3);
+      border-top-color: currentColor;
+      border-radius: 50%; animation: spin 0.7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    .divider { border: none; border-top: 0.5px solid var(--border); margin: 1rem 0; }
+
+    @media (max-width: 480px) {
+      .form-grid { grid-template-columns: 1fr; }
+      .form-group.full { grid-column: 1; }
+      .pay-grid { grid-template-columns: repeat(2, 1fr); }
+      .stats-row { grid-template-columns: 1fr 1fr; }
+      .stats-row .stat-card:last-child { grid-column: 1 / -1; }
+      .tab span { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+<div class="topbar">
+  <i class="ti ti-receipt" style="font-size:20px;"></i>
+  <span class="topbar-logo">Expense Tracker</span>
+  <span class="topbar-sub" id="topbarMonth"></span>
+</div>
+
+<div class="container">
+  <div class="tabs">
+    <button class="tab active" onclick="switchTab('scan', this)">
+      <i class="ti ti-camera"></i><span>Scan receipt</span>
+    </button>
+    <button class="tab" onclick="switchTab('entries', this)">
+      <i class="ti ti-list"></i><span>All entries</span>
+    </button>
+    <button class="tab" onclick="switchTab('settings', this)">
+      <i class="ti ti-settings"></i><span>Settings</span>
+    </button>
+  </div>
+
+  <!-- SCAN PANEL -->
+  <div id="panel-scan" class="panel active">
+    <div class="upload-zone" onclick="document.getElementById('fileInput').click()" id="uploadZone">
+      <i class="ti ti-cloud-upload"></i>
+      <p>Tap to upload a receipt photo</p>
+      <span>JPG, PNG supported</span>
+    </div>
+    <input type="file" id="fileInput" accept="image/*" onchange="handleFile(event)">
+    <img id="previewImg" alt="Receipt preview">
+
+    <button class="scan-btn" id="scanBtn" onclick="scanReceipt()" disabled>
+      <i class="ti ti-scan"></i> Extract receipt data
+    </button>
+
+    <div id="formSection" style="display:none">
+      <div class="card">
+        <div class="form-grid">
+          <div class="form-group full">
+            <label>Company registered name</label>
+            <input type="text" id="f-company" placeholder="e.g. Jollibee Foods Corporation">
+          </div>
+          <div class="form-group">
+            <label>TIN</label>
+            <input type="text" id="f-tin" placeholder="000-000-000-000">
+          </div>
+          <div class="form-group">
+            <label>Date</label>
+            <input type="date" id="f-date">
+          </div>
+          <div class="form-group full">
+            <label>Address</label>
+            <textarea id="f-address" rows="2" placeholder="Business address on receipt"></textarea>
+          </div>
+          <div class="form-group">
+            <label>Total amount (PHP)</label>
+            <input type="text" id="f-amount" placeholder="0.00">
+          </div>
+          <div class="form-group">
+            <label>OR / Invoice number</label>
+            <input type="text" id="f-or" placeholder="Optional">
+          </div>
+          <div class="form-group full">
+            <label>Notes</label>
+            <input type="text" id="f-notes" placeholder="Optional notes">
+          </div>
+        </div>
+
+        <hr class="divider">
+
+        <span class="section-label">Category</span>
+        <div class="chip-grid" id="catGrid">
+          <button class="chip" onclick="selectChip(this,'cat')">Meals</button>
+          <button class="chip" onclick="selectChip(this,'cat')">Rent</button>
+          <button class="chip" onclick="selectChip(this,'cat')">Cost of Goods</button>
+          <button class="chip" onclick="selectChip(this,'cat')">Admin</button>
+          <button class="chip" onclick="selectChip(this,'cat')">Marketing</button>
+          <button class="chip" onclick="selectChip(this,'cat')">Salary</button>
+          <button class="chip" onclick="selectChip(this,'cat')">Utilities</button>
+          <button class="chip" onclick="selectChip(this,'cat')">Transportation</button>
+          <button class="chip" onclick="selectChip(this,'cat')">Equipment</button>
+          <button class="chip" onclick="selectChip(this,'cat')">Supplies</button>
+        </div>
+
+        <hr class="divider">
+
+        <span class="section-label">Payment method</span>
+        <div class="pay-grid" id="payGrid">
+          <button class="pay-chip" onclick="selectChip(this,'pay')">Cash</button>
+          <button class="pay-chip" onclick="selectChip(this,'pay')">GCash</button>
+          <button class="pay-chip" onclick="selectChip(this,'pay')">Union Bank</button>
+          <button class="pay-chip" onclick="selectChip(this,'pay')">Credit Card</button>
+        </div>
+
+        <button class="save-btn" onclick="saveEntry()">
+          <i class="ti ti-device-floppy"></i> Save expense
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ENTRIES PANEL -->
+  <div id="panel-entries" class="panel">
+    <div class="stats-row">
+      <div class="stat-card">
+        <div class="stat-label">This month</div>
+        <div class="stat-value" id="statTotal">₱0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Receipts</div>
+        <div class="stat-value" id="statCount">0</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">Top category</div>
+        <div class="stat-value" id="statTop" style="font-size:15px; padding-top:2px;">—</div>
+      </div>
+    </div>
+
+    <div class="entries-header">
+      <h2>All entries</h2>
+      <div class="export-row">
+        <button class="export-btn" onclick="exportPDF()">
+          <i class="ti ti-file-type-pdf"></i> PDF
+        </button>
+        <button class="export-btn" onclick="exportCSV()">
+          <i class="ti ti-table-export"></i> Export CSV
+        </button>
+      </div>
+    </div>
+
+    <div class="filter-row">
+      <select id="filterCat" onchange="renderEntries()">
+        <option value="">All categories</option>
+        <option>Meals</option><option>Rent</option><option>Cost of Goods</option>
+        <option>Admin</option><option>Marketing</option><option>Salary</option>
+        <option>Utilities</option><option>Transportation</option>
+        <option>Equipment</option><option>Supplies</option>
+      </select>
+      <select id="filterPay" onchange="renderEntries()">
+        <option value="">All payment methods</option>
+        <option>Cash</option><option>GCash</option>
+        <option>Union Bank</option><option>Credit Card</option>
+      </select>
+    </div>
+
+    <div id="entriesList"></div>
+  </div>
+
+  <!-- SETTINGS PANEL -->
+  <div id="panel-settings" class="panel">
+    <div class="card">
+      <h3 style="font-size:15px; font-weight:600; margin-bottom:1rem;">
+        <i class="ti ti-user" style="margin-right:6px;"></i>Your profile
+      </h3>
+      <div class="gs-setup">
+        <div class="field">
+          <label>Your name (uploader tag)</label>
+          <input type="text" id="uploaderName" placeholder="e.g. Maria Santos">
+          <small>Tagged on every expense you save.</small>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size:15px; font-weight:600; margin-bottom:1rem;">
+        <i class="ti ti-table" style="margin-right:6px;"></i>Google Sheets export
+      </h3>
+      <div class="gs-setup">
+        <div class="field">
+          <label>Your Google Sheet URL</label>
+          <input type="text" id="sheetUrl" placeholder="https://docs.google.com/spreadsheets/d/...">
+          <small>Open your Google Sheet → Share → copy the link. Set access to "Anyone with the link can edit."</small>
+        </div>
+      </div>
+      <p style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;">
+        Use <strong>Export CSV</strong> in the entries tab, then in Google Sheets go to <strong>File → Import</strong> to load your data.
+      </p>
+      <button class="gs-save-btn" onclick="saveSettings()">Save settings</button>
+    </div>
+
+    <div class="card">
+      <h3 style="font-size:15px; font-weight:600; margin-bottom:8px; color:#c0392b;">
+        <i class="ti ti-trash" style="margin-right:6px;"></i>Danger zone
+      </h3>
+      <p style="font-size:13px; color:var(--text-secondary); margin-bottom:12px;">Clear all saved expenses from this device.</p>
+      <button onclick="clearAll()" style="padding:8px 16px; font-size:13px; border:0.5px solid #e74c3c; border-radius:var(--radius-md); background:transparent; color:#e74c3c; cursor:pointer;">
+        Clear all data
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+  let entries = [];
+  let selectedCat = '';
+  let selectedPay = '';
+  let currentImage = null;
+
+  function load() {
+    try { entries = JSON.parse(localStorage.getItem('xpense_entries') || '[]'); } catch(e) { entries = []; }
+    try {
+      document.getElementById('sheetUrl').value = localStorage.getItem('xpense_sheetUrl') || '';
+      document.getElementById('uploaderName').value = localStorage.getItem('xpense_uploader') || '';
+    } catch(e) {}
+    const now = new Date();
+    document.getElementById('topbarMonth').textContent = now.toLocaleDateString('en-PH', { month: 'long', year: 'numeric' });
+  }
+
+  function saveSettings() {
+    localStorage.setItem('xpense_sheetUrl', document.getElementById('sheetUrl').value.trim());
+    localStorage.setItem('xpense_uploader', document.getElementById('uploaderName').value.trim());
+    showToast('Settings saved!');
+  }
+
+  function switchTab(name, el) {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+    el.classList.add('active');
+    document.getElementById('panel-' + name).classList.add('active');
+    if (name === 'entries') { renderEntries(); updateStats(); }
+  }
+
+  function handleFile(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = ev => {
+      currentImage = ev.target.result;
+      const img = document.getElementById('previewImg');
+      img.src = currentImage;
+      img.style.display = 'block';
+      document.getElementById('scanBtn').disabled = false;
+      document.getElementById('formSection').style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+  }
+
+  async function scanReceipt() {
+    const btn = document.getElementById('scanBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<div class="spinner"></div>&nbsp; Scanning receipt...';
+
+    try {
+      const base64 = currentImage.split(',')[1];
+      const mimeMatch = currentImage.match(/data:(.*?);base64/);
+      const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+
+      const resp = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-6',
+          max_tokens: 1000,
+          messages: [{
+            role: 'user',
+            content: [
+              { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } },
+              { type: 'text', text: `Extract from this receipt and return ONLY a raw JSON object, no markdown, no extra text:
+{"company":"registered business name","tin":"TIN number or empty","address":"business address or empty","amount":"total amount as number only","date":"YYYY-MM-DD format or today","or_number":"OR or invoice number or empty"}
+If a field is not found, use empty string. For amount, use 0 if not found.` }
+            ]
+          }]
+        })
+      });
+
+      const data = await resp.json();
+      const text = data.content.map(i => i.text || '').join('');
+      const clean = text.replace(/```json|```/g, '').trim();
+      const p = JSON.parse(clean);
+
+      document.getElementById('f-company').value = p.company || '';
+      document.getElementById('f-tin').value = p.tin || '';
+      document.getElementById('f-address').value = p.address || '';
+      document.getElementById('f-amount').value = p.amount || '';
+      document.getElementById('f-date').value = p.date || new Date().toISOString().split('T')[0];
+      document.getElementById('f-or').value = p.or_number || '';
+      document.getElementById('formSection').style.display = 'block';
+      showToast('Receipt scanned — review and complete details.');
+    } catch(err) {
+      document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
+      document.getElementById('formSection').style.display = 'block';
+      showToast('Auto-scan failed — please enter details manually.');
+    }
+
+    btn.disabled = false;
+    btn.innerHTML = '<i class="ti ti-scan"></i> Re-scan receipt';
+  }
+
+  function selectChip(el, group) {
+    const selector = group === 'cat' ? '.chip' : '.pay-chip';
+    document.querySelectorAll(selector).forEach(b => b.classList.remove('selected'));
+    el.classList.add('selected');
+    if (group === 'cat') selectedCat = el.textContent;
+    else selectedPay = el.textContent;
+  }
+
+  function saveEntry() {
+    const company = document.getElementById('f-company').value.trim();
+    const amount = parseFloat(document.getElementById('f-amount').value) || 0;
+    if (!company) { showToast('Please enter a company name.'); return; }
+    if (!selectedCat) { showToast('Please select a category.'); return; }
+    if (!selectedPay) { showToast('Please select a payment method.'); return; }
+
+    const entry = {
+      id: Date.now(),
+      company,
+      tin: document.getElementById('f-tin').value.trim(),
+      address: document.getElementById('f-address').value.trim(),
+      amount,
+      date: document.getElementById('f-date').value,
+      or: document.getElementById('f-or').value.trim(),
+      notes: document.getElementById('f-notes').value.trim(),
+      category: selectedCat,
+      payment: selectedPay,
+      uploader: localStorage.getItem('xpense_uploader') || '',
+      savedAt: new Date().toISOString()
+    };
+
+    entries.unshift(entry);
+    try { localStorage.setItem('xpense_entries', JSON.stringify(entries)); } catch(e) {}
+    showToast('Expense saved!');
+    resetForm();
+  }
+
+  function resetForm() {
+    ['f-company','f-tin','f-address','f-amount','f-date','f-or','f-notes'].forEach(id => {
+      document.getElementById(id).value = '';
+    });
+    document.querySelectorAll('.chip, .pay-chip').forEach(b => b.classList.remove('selected'));
+    selectedCat = ''; selectedPay = '';
+    document.getElementById('formSection').style.display = 'none';
+    document.getElementById('previewImg').style.display = 'none';
+    document.getElementById('scanBtn').disabled = true;
+    document.getElementById('scanBtn').innerHTML = '<i class="ti ti-scan"></i> Extract receipt data';
+    currentImage = null;
+    document.getElementById('fileInput').value = '';
+  }
+
+  function renderEntries() {
+    const cat = document.getElementById('filterCat').value;
+    const pay = document.getElementById('filterPay').value;
+    const filtered = entries.filter(e => (!cat || e.category === cat) && (!pay || e.payment === pay));
+    const list = document.getElementById('entriesList');
+
+    if (!filtered.length) {
+      list.innerHTML = '<div class="empty-state"><i class="ti ti-receipt-off"></i>No entries yet. Scan your first receipt.</div>';
+      return;
+    }
+
+    list.innerHTML = filtered.map(e => `
+      <div class="entry-card">
+        <div class="entry-top">
+          <div class="entry-name">${e.company}</div>
+          <div style="display:flex;align-items:center;gap:4px;">
+            <div class="entry-amount">₱${parseFloat(e.amount).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2})}</div>
+            <button class="entry-delete" onclick="deleteEntry(${e.id})" title="Delete"><i class="ti ti-x"></i></button>
+          </div>
+        </div>
+        <div class="entry-meta">
+          <span class="badge">${e.category}</span>
+          <span class="badge">${e.payment}</span>
+          ${e.date ? `<span class="badge">${e.date}</span>` : ''}
+          ${e.or ? `<span class="badge">OR: ${e.or}</span>` : ''}
+          ${e.uploader ? `<span class="badge"><i class="ti ti-user" style="font-size:10px;"></i> ${e.uploader}</span>` : ''}
+        </div>
+        ${(e.tin||e.address||e.notes) ? `<div class="entry-sub">${[e.tin?'TIN: '+e.tin:'',e.address,e.notes].filter(Boolean).join(' · ')}</div>` : ''}
+      </div>
+    `).join('');
+  }
+
+  function deleteEntry(id) {
+    if (!confirm('Delete this entry?')) return;
+    entries = entries.filter(e => e.id !== id);
+    try { localStorage.setItem('xpense_entries', JSON.stringify(entries)); } catch(e) {}
+    renderEntries(); updateStats();
+    showToast('Entry deleted.');
+  }
+
+  function updateStats() {
+    const now = new Date();
+    const monthly = entries.filter(e => {
+      if (!e.date) return false;
+      const d = new Date(e.date);
+      return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    });
+    const total = monthly.reduce((s, e) => s + (parseFloat(e.amount) || 0), 0);
+    document.getElementById('statTotal').textContent = '₱' + total.toLocaleString('en-PH', {minimumFractionDigits:2, maximumFractionDigits:2});
+    document.getElementById('statCount').textContent = monthly.length;
+    const catCount = {};
+    monthly.forEach(e => { catCount[e.category] = (catCount[e.category] || 0) + 1; });
+    const top = Object.entries(catCount).sort((a,b) => b[1]-a[1])[0];
+    document.getElementById('statTop').textContent = top ? top[0] : '—';
+  }
+
+  function exportCSV() {
+    if (!entries.length) { showToast('No entries to export.'); return; }
+    const header = ['Date','Company','TIN','Address','Category','Payment','Amount (PHP)','OR Number','Notes','Uploader'];
+    const rows = entries.map(e => [e.date,e.company,e.tin,e.address,e.category,e.payment,e.amount,e.or,e.notes,e.uploader]);
+    const csv = [header,...rows].map(r => r.map(v => `"${(v||'').toString().replace(/"/g,'""')}"`).join(',')).join('\n');
+    const blob = new Blob([csv], {type:'text/csv'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = `expenses-${new Date().toISOString().split('T')[0]}.csv`;
+    a.click();
+    showToast('CSV downloaded! Import it into Google Sheets via File → Import.');
+  }
+
+  function exportPDF() {
+    if (!entries.length) { showToast('No entries to export.'); return; }
+    const rows = entries.map(e =>
+      `<tr><td>${e.date||''}</td><td>${e.company}</td><td>${e.tin||''}</td><td>${e.address||''}</td><td>${e.category}</td><td>${e.payment}</td><td style="text-align:right">₱${parseFloat(e.amount).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2})}</td></tr>`
+    ).join('');
+    const total = entries.reduce((s,e) => s+(parseFloat(e.amount)||0), 0);
+    const now = new Date().toLocaleDateString('en-PH',{year:'numeric',month:'long',day:'numeric'});
+    const html = `<!DOCTYPE html><html><head><title>Expense Report</title><meta charset="UTF-8"><style>body{font-family:sans-serif;padding:28px;font-size:13px;color:#1a1a18}h2{font-size:20px;margin-bottom:4px}p.sub{color:#6b6b67;margin-bottom:20px;font-size:13px}table{width:100%;border-collapse:collapse}th{background:#f0efeb;text-align:left;padding:9px 11px;border-bottom:1px solid #d0d0cc;font-size:12px;text-transform:uppercase;letter-spacing:0.04em}td{padding:8px 11px;border-bottom:0.5px solid #e8e8e4;vertical-align:top}.total{text-align:right;margin-top:14px;font-weight:600;font-size:15px}</style></head><body><h2>Expense Report</h2><p class="sub">Generated ${now}</p><table><thead><tr><th>Date</th><th>Company</th><th>TIN</th><th>Address</th><th>Category</th><th>Payment</th><th>Amount</th></tr></thead><tbody>${rows}</tbody></table><div class="total">Total: ₱${total.toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2})}</div></body></html>`;
+    const w = window.open('','_blank');
+    if (w) { w.document.write(html); w.document.close(); setTimeout(() => w.print(), 400); }
+    else showToast('Allow pop-ups to export PDF.');
+  }
+
+  function clearAll() {
+    if (!confirm('Delete ALL expense entries? This cannot be undone.')) return;
+    entries = [];
+    localStorage.removeItem('xpense_entries');
+    renderEntries(); updateStats();
+    showToast('All entries cleared.');
+  }
+
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg; t.classList.add('show');
+    clearTimeout(t._timer);
+    t._timer = setTimeout(() => t.classList.remove('show'), 3200);
+  }
+
+  load();
+</script>
+</body>
+</html>
