@@ -83,13 +83,6 @@
     .filter-row { display: flex; gap: 8px; margin-bottom: 1rem; flex-wrap: wrap; }
     .filter-row select { flex: 1; min-width: 140px; font-size: 13px; padding: 8px 10px; }
     .entry-card { background: var(--bg); border: 0.5px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; margin-bottom: 10px; }
-    .view-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-    .view-table th { background: var(--pink-light); color: var(--pink); text-align: left; padding: 8px 10px; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; border-bottom: 2px solid var(--pink); white-space: nowrap; }
-    .view-table td { padding: 8px 10px; border-bottom: 0.5px solid var(--border); vertical-align: middle; }
-    .view-table tr:hover td { background: var(--pink-light); }
-    .view-table .td-amount { font-weight: 700; color: var(--pink); white-space: nowrap; }
-    .view-table .td-del { padding: 4px; }
-    .table-wrapper { overflow-x: auto; border-radius: var(--radius); border: 0.5px solid var(--border); background: var(--bg); }
     .entry-card.repaid { opacity: 0.55; }
     .entry-card.repaid .entry-name { text-decoration: line-through; }
     .entry-card.repaid .entry-amount { text-decoration: line-through; color: var(--text3); }
@@ -247,15 +240,19 @@
 
   <!-- ENTRIES PANEL -->
   <div id="panel-entries" class="panel">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+      <select id="monthFilter" onchange="updateStats();renderEntries();" style="flex:1;font-size:14px;padding:10px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-family:var(--font);">
+      </select>
+      <button onclick="document.getElementById('monthFilter').value='all';updateStats();renderEntries();" style="padding:10px 14px;font-size:13px;border:1.5px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text2);cursor:pointer;white-space:nowrap;font-family:var(--font);">All time</button>
+    </div>
     <div class="stats-row">
-      <div class="stat-card"><div class="stat-label">This month</div><div class="stat-value" id="statTotal">₱0</div></div>
+      <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value" id="statTotal">₱0</div></div>
       <div class="stat-card"><div class="stat-label">Receipts</div><div class="stat-value" id="statCount">0</div></div>
       <div class="stat-card"><div class="stat-label">Top category</div><div class="stat-value" id="statTop" style="font-size:13px;padding-top:3px;">—</div></div>
     </div>
     <div class="entries-header">
       <h2>All entries</h2>
       <div class="export-row">
-        <button class="export-btn" onclick="toggleView()" id="viewToggleBtn" title="Toggle view"><i class="ti ti-layout-list" id="viewToggleIcon"></i></button>
         <button class="export-btn" onclick="exportPDF()"><i class="ti ti-file-type-pdf"></i> PDF</button>
         <button class="export-btn" onclick="exportCSV()"><i class="ti ti-table-export"></i> CSV</button>
       </div>
@@ -313,6 +310,67 @@
   </div>
 </div>
 
+
+<div id="editModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.5);z-index:998;align-items:flex-end;justify-content:center;padding:1rem;">
+  <div style="background:var(--bg);border-radius:16px;width:100%;max-width:600px;padding:1.25rem;max-height:90vh;overflow-y:auto;">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+      <h3 style="font-size:16px;font-weight:700;">✏️ Edit Expense</h3>
+      <button onclick="closeEdit()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text2);">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group full"><label>Company registered name</label><input type="text" id="e-company"></div>
+      <div class="form-group"><label>TIN</label><input type="text" id="e-tin"></div>
+      <div class="form-group"><label>Date</label><input type="date" id="e-date"></div>
+      <div class="form-group full"><label>Address</label><textarea id="e-address" rows="2"></textarea></div>
+      <div class="form-group"><label>Total amount (PHP)</label><input type="text" id="e-amount"></div>
+      <div class="form-group"><label>OR / Invoice number</label><input type="text" id="e-or"></div>
+      <div class="form-group full"><label>Notes</label><input type="text" id="e-notes"></div>
+    </div>
+    <div style="margin-bottom:12px;">
+      <span class="section-label">Category</span>
+      <div class="chip-grid" id="e-catGrid">
+        <button class="chip" onclick="editSelectCat(this)">Cost of Goods</button>
+        <button class="chip" onclick="editSelectCat(this)">Cleaning Supplies</button>
+        <button class="chip" onclick="editSelectCat(this)">Dues and Membership Fee</button>
+        <button class="chip" onclick="editSelectCat(this)">Subscription and Software</button>
+        <button class="chip" onclick="editSelectCat(this)">Utilities: Light and Water</button>
+        <button class="chip" onclick="editSelectCat(this)">Gas and Oil</button>
+        <button class="chip" onclick="editSelectCat(this)">Meals</button>
+        <button class="chip" onclick="editSelectCat(this)">Miscellaneous</button>
+        <button class="chip" onclick="editSelectCat(this)">Office Supplies</button>
+        <button class="chip" onclick="editSelectCat(this)">Professional and Legal Fee</button>
+        <button class="chip" onclick="editSelectCat(this)">Repairs and Maintenance</button>
+        <button class="chip" onclick="editSelectCat(this)">Rental</button>
+        <button class="chip" onclick="editSelectCat(this)">Salaries</button>
+        <button class="chip" onclick="editSelectCat(this)">Taxes and Licenses</button>
+        <button class="chip" onclick="editSelectCat(this)">Transportation and Travel</button>
+        <button class="chip" onclick="editSelectCat(this)">Loan - Alex</button>
+        <button class="chip" onclick="editSelectCat(this)">Loan - CJ</button>
+      </div>
+    </div>
+    <div style="margin-bottom:12px;">
+      <span class="section-label">Payment method</span>
+      <div class="pay-grid" id="e-payGrid">
+        <button class="pay-chip" onclick="editSelectPay(this)">Cash</button>
+        <button class="pay-chip" onclick="editSelectPay(this)">Gcash - Alex</button>
+        <button class="pay-chip" onclick="editSelectPay(this)">Gcash - CJ</button>
+        <button class="pay-chip" onclick="editSelectPay(this)">Union - CC</button>
+        <button class="pay-chip" onclick="editSelectPay(this)">Union - OHT Cafe</button>
+        <button class="pay-chip" onclick="editSelectPay(this)">Union - Alexsandria</button>
+        <button class="pay-chip" onclick="editSelectPay(this)">Metrobank - OHT Advertising</button>
+      </div>
+    </div>
+    <div style="margin-bottom:1rem;">
+      <span class="section-label">Expense belongs to</span>
+      <div class="pay-grid" id="e-ownerGrid" style="grid-template-columns:repeat(2,1fr);">
+        <button class="pay-chip" onclick="editSelectOwner(this)">OHT Expense</button>
+        <button class="pay-chip" onclick="editSelectOwner(this)">Others</button>
+      </div>
+    </div>
+    <button onclick="saveEdit()" style="width:100%;padding:13px;font-size:15px;font-weight:600;border-radius:12px;border:none;background:var(--pink);color:#fff;cursor:pointer;">Save changes</button>
+  </div>
+</div>
+
 <div class="toast" id="toast"></div>
 
 <script>
@@ -328,7 +386,7 @@
       const r = await fetch('/api/claude', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ action: 'load' }) });
       const data = await r.json();
       if (data.success && Array.isArray(data.entries)) {
-        entries = data.entries.map(e => ({ id: e.id, company: e.company, tin: e.tin, address: e.address, amount: parseFloat(e.amount)||0, date: e.date, or: e.or_number, notes: e.notes, category: e.category, payment: e.payment, owner: e.owner, officialReceipt: e.official_receipt, repaid: e.repaid, uploader: e.uploader, savedAt: e.saved_at }));
+        entries = data.entries.map(e => ({ id: e.id, company: e.company, tin: e.tin, address: e.address, amount: e.amount, date: e.date, or: e.or_number, notes: e.notes, category: e.category, payment: e.payment, owner: e.owner, officialReceipt: e.official_receipt, repaid: e.repaid, uploader: e.uploader, savedAt: e.saved_at }));
         renderEntries(); updateStats();
       }
     } catch(err) { console.log('Supabase load error:', err); }
@@ -568,13 +626,6 @@
     document.getElementById('fileInput').value = '';
   }
 
-  let currentView = 'card';
-  function toggleView() {
-    currentView = currentView === 'card' ? 'table' : 'card';
-    document.getElementById('viewToggleIcon').className = currentView === 'card' ? 'ti ti-layout-list' : 'ti ti-table';
-    renderEntries();
-  }
-
   function renderEntries() {
     const cat = document.getElementById('filterCat').value;
     const pay = document.getElementById('filterPay').value;
@@ -582,36 +633,13 @@
     const list = document.getElementById('entriesList');
     if (!filtered.length) { list.innerHTML = '<div class="empty-state"><div style="font-size:48px;margin-bottom:10px;">🧾</div>No entries yet.<br>Scan your first receipt!</div>'; return; }
     const isLoan = e => e.category === 'Loan - Alex' || e.category === 'Loan - CJ';
-
-    if (currentView === 'table') {
-      list.innerHTML = '<div class="table-wrapper"><table class="view-table"><thead><tr>' +
-        '<th>Date</th><th>Company</th><th>Category</th><th>Payment</th><th>Owner</th><th>Amount</th><th>OR</th><th></th>' +
-        '</tr></thead><tbody>' +
-        filtered.map(e =>
-          '<tr class="' + (e.repaid ? 'repaid' : '') + '">' +
-          '<td style="white-space:nowrap;color:var(--text2);">' + (e.date||'') + '</td>' +
-          '<td><div style="font-weight:600;font-size:13px;">' + e.company + '</div>' +
-            (e.tin ? '<div style="font-size:11px;color:var(--text3);">TIN: '+e.tin+'</div>' : '') + '</td>' +
-          '<td><span class="badge">' + e.category + '</span></td>' +
-          '<td style="white-space:nowrap;"><span class="badge">' + e.payment + '</span></td>' +
-          '<td>' + (e.owner ? '<span class="badge" style="background:var(--pink-light);color:var(--pink);">'+e.owner+'</span>' : '') + '</td>' +
-          '<td class="td-amount' + (e.repaid?' repaid':'') + '">₱' + parseFloat(e.amount).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2}) + (e.repaid?' <span style="font-size:10px;color:var(--text3);">(repaid)</span>':'') + '</td>' +
-          '<td style="color:var(--text3);font-size:12px;">' + (e.or||'') + '</td>' +
-          '<td class="td-del"><button onclick="deleteEntry('+e.id+')" style="padding:3px 7px;border:1px solid #e74c3c;border-radius:6px;background:transparent;color:#e74c3c;cursor:pointer;font-size:12px;"><i class="ti ti-trash"></i></button></td>' +
-          '</tr>'
-        ).join('') +
-        '</tbody></table></div>';
-      return;
-    }
-
-    const isLoan2 = isLoan;
     list.innerHTML = filtered.map(e =>
       '<div class="entry-card' + (e.repaid ? ' repaid' : '') + '">' +
       '<div class="entry-top">' +
       '<div class="entry-name">' + e.company + '</div>' +
       '<div style="display:flex;align-items:center;gap:4px;">' +
       '<div class="entry-amount">₱' + parseFloat(e.amount).toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2}) + '</div>' +
-      '<button class="entry-delete" onclick="deleteEntry(' + e.id + ')" title="Delete entry" style="padding:4px 8px;border:1px solid #e74c3c;border-radius:6px;color:#e74c3c;"><i class="ti ti-trash" style="font-size:14px;"></i></button>' +
+      '<button class="entry-delete" onclick="deleteEntry(' + e.id + ')"><i class="ti ti-x"></i></button>' +
       '</div></div>' +
       '<div class="entry-meta">' +
       '<span class="badge">' + e.category + '</span>' +
@@ -622,7 +650,7 @@
       (!e.officialReceipt ? '<span class="no-tin-badge">Non-official OR</span>' : '') +
       (e.uploader ? '<span class="badge">' + e.uploader + '</span>' : '') +
       '</div>' +
-      (isLoan2(e) ? '<button class="repaid-btn' + (e.repaid ? ' is-repaid' : '') + '" onclick="toggleRepaid(' + e.id + ')">' + (e.repaid ? '✓ Repaid — tap to undo' : 'Mark as repaid') + '</button>' : '') +
+      (isLoan(e) ? '<button class="repaid-btn' + (e.repaid ? ' is-repaid' : '') + '" onclick="toggleRepaid(' + e.id + ')">' + (e.repaid ? '✓ Repaid — tap to undo' : 'Mark as repaid') + '</button>' : '') +
       ((e.tin||e.address||e.notes) ? '<div class="entry-sub">' + [e.tin?'TIN: '+e.tin:'', e.address, e.notes].filter(Boolean).join(' · ') + '</div>' : '') +
       '</div>'
     ).join('');
@@ -646,13 +674,36 @@
     fetch('/api/claude', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ action: 'delete', id: id }) });
   }
 
-  function updateStats() {
+  function populateMonthFilter() {
+    const sel = document.getElementById('monthFilter');
+    const months = {};
+    entries.forEach(e => { if (e.date) { const d = e.date.slice(0,7); months[d] = true; } });
+    const sorted = Object.keys(months).sort().reverse();
     const now = new Date();
-    const monthly = entries.filter(e => { if (!e.date) return false; const d = new Date(e.date); return d.getMonth()===now.getMonth()&&d.getFullYear()===now.getFullYear(); });
-    const total = monthly.reduce((s,e) => s + (e.repaid ? 0 : (parseFloat(e.amount)||0)), 0);
+    const thisMonth = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
+    sel.innerHTML = '<option value="all">All time</option>' +
+      sorted.map(m => {
+        const [y,mo] = m.split('-');
+        const label = new Date(y, parseInt(mo)-1).toLocaleDateString('en-PH',{month:'long',year:'numeric'});
+        return '<option value="'+m+'"'+(m===thisMonth?' selected':'')+'>'+label+'</option>';
+      }).join('');
+    if (!sorted.includes(thisMonth)) sel.value = sorted[0] || 'all';
+  }
+
+  function getFilteredByMonth() {
+    const sel = document.getElementById('monthFilter');
+    const val = sel ? sel.value : 'all';
+    if (val === 'all') return entries;
+    return entries.filter(e => e.date && e.date.startsWith(val));
+  }
+
+  function updateStats() {
+    populateMonthFilter();
+    const filtered = getFilteredByMonth();
+    const total = filtered.reduce((s,e) => s + (e.repaid ? 0 : (parseFloat(e.amount)||0)), 0);
     document.getElementById('statTotal').textContent = '₱'+total.toLocaleString('en-PH',{minimumFractionDigits:2,maximumFractionDigits:2});
-    document.getElementById('statCount').textContent = monthly.length;
-    const catCount = {}; monthly.forEach(e => { catCount[e.category]=(catCount[e.category]||0)+1; });
+    document.getElementById('statCount').textContent = filtered.length;
+    const catCount = {}; filtered.forEach(e => { catCount[e.category]=(catCount[e.category]||0)+1; });
     const top = Object.entries(catCount).sort((a,b)=>b[1]-a[1])[0];
     document.getElementById('statTop').textContent = top ? top[0] : '—';
   }
@@ -679,6 +730,61 @@
     if (!confirm('Delete ALL entries? This cannot be undone.')) return;
     entries = []; localStorage.removeItem('xpense_entries');
     renderEntries(); updateStats(); showToast('All entries cleared.');
+  }
+
+  let editingId = null;
+  let editCat = '', editPay = '', editOwner = '';
+
+  function openEdit(id) {
+    const e = entries.find(x => x.id === id);
+    if (!e) return;
+    editingId = id;
+    editCat = e.category || '';
+    editPay = e.payment || '';
+    editOwner = e.owner || '';
+    document.getElementById('e-company').value = e.company || '';
+    document.getElementById('e-tin').value = e.tin || '';
+    document.getElementById('e-date').value = e.date || '';
+    document.getElementById('e-address').value = e.address || '';
+    document.getElementById('e-amount').value = e.amount || '';
+    document.getElementById('e-or').value = e.or || '';
+    document.getElementById('e-notes').value = e.notes || '';
+    document.querySelectorAll('#e-catGrid .chip').forEach(b => { b.classList.toggle('selected', b.textContent === editCat); });
+    document.querySelectorAll('#e-payGrid .pay-chip').forEach(b => { b.classList.toggle('selected', b.textContent === editPay); });
+    document.querySelectorAll('#e-ownerGrid .pay-chip').forEach(b => { b.classList.toggle('selected', b.textContent === editOwner); });
+    const modal = document.getElementById('editModal');
+    modal.style.display = 'flex';
+  }
+
+  function closeEdit() {
+    document.getElementById('editModal').style.display = 'none';
+    editingId = null;
+  }
+
+  function editSelectCat(el) { document.querySelectorAll('#e-catGrid .chip').forEach(b => b.classList.remove('selected')); el.classList.add('selected'); editCat = el.textContent; }
+  function editSelectPay(el) { document.querySelectorAll('#e-payGrid .pay-chip').forEach(b => b.classList.remove('selected')); el.classList.add('selected'); editPay = el.textContent; }
+  function editSelectOwner(el) { document.querySelectorAll('#e-ownerGrid .pay-chip').forEach(b => b.classList.remove('selected')); el.classList.add('selected'); editOwner = el.textContent; }
+
+  async function saveEdit() {
+    if (!editingId) return;
+    const entry = entries.find(e => e.id === editingId);
+    if (!entry) return;
+    entry.company = document.getElementById('e-company').value.trim();
+    entry.tin = document.getElementById('e-tin').value.trim();
+    entry.date = document.getElementById('e-date').value;
+    entry.address = document.getElementById('e-address').value.trim();
+    entry.amount = parseFloat(document.getElementById('e-amount').value) || 0;
+    entry.or = document.getElementById('e-or').value.trim();
+    entry.notes = document.getElementById('e-notes').value.trim();
+    entry.category = editCat || entry.category;
+    entry.payment = editPay || entry.payment;
+    entry.owner = editOwner || entry.owner;
+    entry.officialReceipt = !!entry.tin;
+    try { localStorage.setItem('xpense_entries', JSON.stringify(entries)); } catch(e) {}
+    renderEntries(); updateStats();
+    closeEdit();
+    showToast('Entry updated!');
+    fetch('/api/claude', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ action: 'update', id: entry.id, fields: { company: entry.company, tin: entry.tin, date: entry.date, address: entry.address, amount: entry.amount, or_number: entry.or, notes: entry.notes, category: entry.category, payment: entry.payment, owner: entry.owner, official_receipt: entry.officialReceipt } }) });
   }
 
   function showToast(msg) {
