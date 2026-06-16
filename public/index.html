@@ -320,11 +320,17 @@
   <div id="panel-scan" class="panel active">
     <div class="upload-zone" onclick="document.getElementById('fileInput').click()" id="uploadZone">
       <i class="ti ti-cloud-upload"></i>
-      <p>Tap to upload a receipt photo</p>
-      <span>JPG, PNG supported</span>
+      <p>Tap to upload receipt photo(s)</p>
+      <span>Upload multiple angles of the same receipt for better accuracy</span>
     </div>
-    <input type="file" id="fileInput" accept="image/*" onchange="handleFile(event)">
-    <img id="previewImg" alt="Receipt preview">
+    <input type="file" id="fileInput" accept="image/*" multiple onchange="handleFiles(event)">
+
+    <div id="previewStrip" style="display:none; margin-bottom:1rem;">
+      <div id="previewThumbs" style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:8px;"></div>
+      <button onclick="document.getElementById('fileInput').click()" style="font-size:12px; padding:5px 12px; border:0.5px dashed var(--border-md); border-radius:var(--radius-md); background:transparent; color:var(--text-secondary); cursor:pointer;">
+        <i class="ti ti-plus" style="font-size:13px;"></i> Add another angle
+      </button>
+    </div>
 
     <div class="clarity-alert" id="clarityAlert">
       <i id="clarityIcon"></i>
@@ -501,7 +507,6 @@
   let entries = [];
   let selectedCat = '';
   let selectedPay = '';
-  let currentImage = null;
 
   function load() {
     try { entries = JSON.parse(localStorage.getItem('xpense_entries') || '[]'); } catch(e) { entries = []; }
@@ -527,68 +532,106 @@
     if (name === 'entries') { renderEntries(); updateStats(); }
   }
 
-  function handleFile(e) {
-    const file = e.target.files[0];
-    if (!file) return;
-    const reader = new FileReader();
-    reader.onload = ev => {
-      currentImage = ev.target.result;
-      const img = document.getElementById('previewImg');
-      img.src = currentImage;
-      img.style.display = 'block';
+  let currentImages = []; // array of {dataUrl, mimeType}
+
+  function handleFiles(e) {
+    const files = Array.from(e.target.files);
+    if (!files.length) return;
+
+    const readers = files.map(file => new Promise(resolve => {
+      const reader = new FileReader();
+      reader.onload = ev => resolve({ dataUrl: ev.target.result, mimeType: file.type || 'image/jpeg' });
+      reader.readAsDataURL(file);
+    }));
+
+    Promise.all(readers).then(results => {
+      currentImages = [...currentImages, ...results];
+      renderPreviews();
       document.getElementById('clarityAlert').className = 'clarity-alert';
       document.getElementById('formSection').style.display = 'none';
       document.getElementById('scanBtn').disabled = true;
       document.getElementById('scanBtn').innerHTML = '<div class="spinner"></div>&nbsp; Checking photo quality...';
       checkClarity();
-    };
-    reader.readAsDataURL(file);
+    });
+  }
+
+  function renderPreviews() {
+    const strip = document.getElementById('previewStrip');
+    const thumbs = document.getElementById('previewThumbs');
+    document.getElementById('uploadZone').style.display = 'none';
+    strip.style.display = 'block';
+    thumbs.innerHTML = currentImages.map((img, i) => `
+      <div style="position:relative; width:80px; height:80px; flex-shrink:0;">
+        <img src="${img.dataUrl}" style="width:80px;height:80px;object-fit:cover;border-radius:var(--radius-md);border:0.5px solid var(--border-md);">
+        <button onclick="removeImage(${i})" style="position:absolute;top:-6px;right:-6px;width:20px;height:20px;border-radius:50%;background:var(--text-primary);color:var(--bg);border:none;cursor:pointer;font-size:11px;display:flex;align-items:center;justify-content:center;line-height:1;">✕</button>
+      </div>
+    `).join('');
+  }
+
+  function removeImage(i) {
+    currentImages.splice(i, 1);
+    if (!currentImages.length) {
+      resetForm(); return;
+    }
+    renderPreviews();
+    checkClarity();
   }
 
   async function checkClarity() {
     try {
-      const base64 = currentImage.split(',')[1];
-      const mimeMatch = currentImage.match(/data:(.*?);base64/);
-      const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+      const imageBlocks = currentImages.map(img => ({
+        type: 'image',
+        source: { type: 'base64', media_type: img.mimeType, data: img.dataUrl.split(',')[1] }
+      }));
 
       const resp = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
-          max_tokens: 300,
+          max_tokens: 400,
           messages: [{
             role: 'user',
             content: [
-              { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } },
-              { type: 'text', text: `Look at this image and assess if it is a readable receipt photo. Return ONLY a raw JSON object:
-{"readable": true or false, "reason": "one short sentence explanation", "issues": "comma-separated list of issues if any e.g. blurry, too dark, cut off, glare, not a receipt — or empty string if clear"}
-Be strict: if key details like amount or company name would be hard to read, mark as not readable.` }
+              ...imageBlocks,
+              { type: 'text', text: `These are ${currentImages.length} photo(s) of the same receipt. Assess readability across all of them combined. Return ONLY a raw JSON object:
+{"readable": true or false, "unclear_fields": ["list of field names that are unclear or missing, e.g. company_name, tin, address, amount, date, or_number — empty array if all clear"], "tip": "one short actionable tip if not readable, else empty string"}` }
             ]
           }]
         })
       });
 
       const data = await resp.json();
+      if (data.error) throw new Error(data.error.message);
       const text = data.content.map(i => i.text || '').join('');
       const clean = text.replace(/```json|```/g, '').trim();
       const result = JSON.parse(clean);
 
-      const alert = document.getElementById('clarityAlert');
+      const alertEl = document.getElementById('clarityAlert');
       const btn = document.getElementById('scanBtn');
+      const fieldLabels = { company_name:'Company name', tin:'TIN', address:'Address', amount:'Total amount', date:'Date', or_number:'OR number' };
 
       if (result.readable) {
-        alert.className = 'clarity-alert good';
+        alertEl.className = 'clarity-alert good';
         document.getElementById('clarityIcon').className = 'ti ti-circle-check';
         document.getElementById('clarityTitle').textContent = 'Photo looks good!';
-        document.getElementById('clarityMsg').textContent = 'Receipt is clear enough to extract details.';
+        document.getElementById('clarityMsg').textContent = currentImages.length > 1
+          ? `All ${currentImages.length} photos combined give a clear view of the receipt.`
+          : 'Receipt is clear enough to extract details.';
         btn.disabled = false;
         btn.innerHTML = '<i class="ti ti-scan"></i> Extract receipt data';
       } else {
-        alert.className = 'clarity-alert bad';
+        const unclear = (result.unclear_fields || []).map(f => fieldLabels[f] || f);
+        alertEl.className = 'clarity-alert bad';
         document.getElementById('clarityIcon').className = 'ti ti-alert-triangle';
-        document.getElementById('clarityTitle').textContent = 'Please retake this photo';
-        document.getElementById('clarityMsg').textContent = result.reason + (result.issues ? ' (' + result.issues + ')' : '');
+        document.getElementById('clarityTitle').textContent = unclear.length
+          ? `Can't read: ${unclear.join(', ')}`
+          : 'Photo quality too low';
+        document.getElementById('clarityMsg').textContent = result.tip || 'Try adding another angle or retake the photo in better lighting.';
         btn.disabled = false;
         btn.innerHTML = '<i class="ti ti-scan"></i> Try extracting anyway';
       }
@@ -605,29 +648,35 @@ Be strict: if key details like amount or company name would be hard to read, mar
     btn.innerHTML = '<div class="spinner"></div>&nbsp; Scanning receipt...';
 
     try {
-      const base64 = currentImage.split(',')[1];
-      const mimeMatch = currentImage.match(/data:(.*?);base64/);
-      const mimeType = mimeMatch ? mimeMatch[1] : 'image/jpeg';
+      const imageBlocks = currentImages.map(img => ({
+        type: 'image',
+        source: { type: 'base64', media_type: img.mimeType, data: img.dataUrl.split(',')[1] }
+      }));
 
       const resp = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true'
+        },
         body: JSON.stringify({
           model: 'claude-sonnet-4-6',
           max_tokens: 1000,
           messages: [{
             role: 'user',
             content: [
-              { type: 'image', source: { type: 'base64', media_type: mimeType, data: base64 } },
-              { type: 'text', text: `Extract from this receipt and return ONLY a raw JSON object, no markdown, no extra text:
-{"company":"registered business name","tin":"TIN number or empty","address":"business address or empty","amount":"total amount as number only","date":"YYYY-MM-DD format or today","or_number":"OR or invoice number or empty"}
-If a field is not found, use empty string. For amount, use 0 if not found.` }
+              ...imageBlocks,
+              { type: 'text', text: `These are ${currentImages.length} photo(s) of the same receipt. Use all images together to extract the best data. Return ONLY a raw JSON object, no markdown:
+{"company":"registered business name","tin":"TIN number or empty string if not found","address":"business address or empty","amount":"total amount as number only, no currency","date":"YYYY-MM-DD or today's date","or_number":"OR or invoice number or empty","missing_fields":["array of field names that could not be found"]}
+TIN is optional — many receipts don't have one, that's fine. For amount use 0 only if truly unreadable.` }
             ]
           }]
         })
       });
 
       const data = await resp.json();
+      if (data.error) throw new Error(data.error.message);
       const text = data.content.map(i => i.text || '').join('');
       const clean = text.replace(/```json|```/g, '').trim();
       const p = JSON.parse(clean);
@@ -639,15 +688,23 @@ If a field is not found, use empty string. For amount, use 0 if not found.` }
       document.getElementById('f-date').value = p.date || new Date().toISOString().split('T')[0];
       document.getElementById('f-or').value = p.or_number || '';
       document.getElementById('formSection').style.display = 'block';
-      showToast('Receipt scanned — review and complete details.');
+
+      if (p.missing_fields && p.missing_fields.length) {
+        const fieldLabels = { company:'Company name', tin:'TIN', address:'Address', amount:'Total amount', date:'Date', or_number:'OR number' };
+        const missing = p.missing_fields.filter(f => f !== 'tin').map(f => fieldLabels[f] || f);
+        if (missing.length) showToast('Please fill in: ' + missing.join(', '));
+        else showToast('Scanned! TIN not found — marked as non-official OR.');
+      } else {
+        showToast('Receipt scanned — review and save.');
+      }
     } catch(err) {
       document.getElementById('f-date').value = new Date().toISOString().split('T')[0];
       document.getElementById('formSection').style.display = 'block';
-      showToast('Auto-scan failed — please enter details manually.');
+      showToast('Scan error: ' + (err.message || 'Please enter details manually.'));
     }
 
     btn.disabled = false;
-    btn.innerHTML = '<i class="ti ti-scan"></i> Re-scan receipt';
+    btn.innerHTML = '<i class="ti ti-scan"></i> Re-scan';
   }
 
   function selectChip(el, group) {
@@ -693,12 +750,14 @@ If a field is not found, use empty string. For amount, use 0 if not found.` }
     });
     document.querySelectorAll('.chip, .pay-chip').forEach(b => b.classList.remove('selected'));
     selectedCat = ''; selectedPay = '';
+    currentImages = [];
     document.getElementById('formSection').style.display = 'none';
-    document.getElementById('previewImg').style.display = 'none';
+    document.getElementById('previewStrip').style.display = 'none';
+    document.getElementById('previewThumbs').innerHTML = '';
+    document.getElementById('uploadZone').style.display = 'block';
     document.getElementById('clarityAlert').className = 'clarity-alert';
     document.getElementById('scanBtn').disabled = true;
     document.getElementById('scanBtn').innerHTML = '<i class="ti ti-scan"></i> Extract receipt data';
-    currentImage = null;
     document.getElementById('fileInput').value = '';
   }
 
