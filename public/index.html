@@ -932,6 +932,9 @@
     entry.tin = document.getElementById('e-tin').value.trim();
     entry.date = document.getElementById('e-date').value;
     entry.address = document.getElementById('e-address').value.trim();
+    entry.vatType = vatTypeE;
+    entry.vatableSales = calcVat(document.getElementById('e-amount').value, vatTypeE).vatableSales;
+    entry.vatAmount = calcVat(document.getElementById('e-amount').value, vatTypeE).vatAmount;
     entry.amount = parseFloat(document.getElementById('e-amount').value) || 0;
     entry.or = document.getElementById('e-or').value.trim();
     entry.notes = document.getElementById('e-notes').value.trim();
