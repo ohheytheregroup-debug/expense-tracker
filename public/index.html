@@ -943,13 +943,26 @@
           headers: {'Content-Type':'application/json'},
           body: JSON.stringify({
             action: 'sync-sheet',
-            entry: {
-              date: e.date, company: e.company, tin: e.tin, address: e.address,
-              amount: e.amount, discount: e.discount||0, vat_type: e.vatType||'',
-              vatable_sales: e.vatableSales||0, vat_amount: e.vatAmount||0,
-              category: e.category, payment: e.payment, owner: e.owner,
-              uploader: e.uploader, notes: e.notes, saved_at: e.savedAt
-            }
+            entry: (function() {
+              const vatType = e.vatType || 'inclusive';
+              const disc = e.discount || 0;
+              const amt = parseFloat(e.amount) || 0;
+              const netAmt = amt - disc;
+              let vatableSales = e.vatableSales || 0;
+              let vatAmount = e.vatAmount || 0;
+              if (!e.vatableSales) {
+                if (vatType === 'inclusive') { vatAmount = netAmt * (12/112); vatableSales = netAmt - vatAmount; }
+                else if (vatType === 'exclusive') { vatableSales = netAmt; vatAmount = netAmt * 0.12; }
+              }
+              return {
+                date: e.date, company: e.company, tin: e.tin, address: e.address,
+                amount: e.amount, discount: disc, vat_type: vatType,
+                vatable_sales: Math.round(vatableSales * 100) / 100,
+                vat_amount: Math.round(vatAmount * 100) / 100,
+                category: e.category, payment: e.payment, owner: e.owner,
+                uploader: e.uploader, notes: e.notes, saved_at: e.savedAt
+              };
+            })()
           })
         });
         success++;
