@@ -932,27 +932,44 @@
     const status = document.getElementById('syncStatus');
     btn.disabled = true;
     btn.textContent = 'Syncing...';
-    status.textContent = 'Preparing entries...';
-    try {
-      const payload = entries.map(e => ({
+    status.textContent = 'Grouping by month...';
+
+    // Group entries by month tab name
+    const byMonth = {};
+    for (const e of entries) {
+      let month = 'Unknown';
+      try {
+        const d = new Date(e.date + 'T00:00:00Z');
+        month = d.toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' });
+      } catch(err) {}
+      if (!byMonth[month]) byMonth[month] = [];
+      byMonth[month].push({
         date: e.date, company: e.company, tin: e.tin, address: e.address,
         amount: e.amount, discount: e.discount||0, vat_type: e.vatType||'inclusive',
         vatable_sales: e.vatableSales||0, vat_amount: e.vatAmount||0,
         category: e.category, payment: e.payment, owner: e.owner,
         uploader: e.uploader, notes: e.notes, saved_at: e.savedAt
-      }));
-      const resp = await fetch('/api/claude', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({ action: 'sync-all', entries: payload })
       });
-      const result = await resp.json();
-      if (result.success) {
-        status.textContent = `✓ Synced ${result.total} entries across ${result.months} month tab(s).`;
-        showToast('Sheet sync complete! 📊');
-      } else {
-        status.textContent = '✗ Sync failed: ' + (result.detail || 'unknown error');
+    }
+
+    const months = Object.keys(byMonth);
+    let totalSynced = 0;
+    try {
+      for (let i = 0; i < months.length; i++) {
+        const month = months[i];
+        const monthEntries = byMonth[month];
+        status.textContent = `Syncing ${month} (${i+1}/${months.length})...`;
+        const resp = await fetch('/api/claude', {
+          method: 'POST',
+          headers: {'Content-Type':'application/json'},
+          body: JSON.stringify({ action: 'sync-all', entries: monthEntries, month })
+        });
+        const result = await resp.json();
+        if (result.success) totalSynced += monthEntries.length;
+        else console.warn('Sync failed for', month, result.detail);
       }
+      status.textContent = `✓ Synced ${totalSynced} entries across ${months.length} month tab(s).`;
+      showToast('Sheet sync complete! 📊');
     } catch(err) {
       status.textContent = '✗ Error: ' + err.message;
     }
