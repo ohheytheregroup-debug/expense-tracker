@@ -135,6 +135,10 @@
     .account-role-badge.owner { background:#fce7f3; color:#be185d; }
     .account-role-badge.staff { background:#eff6ff; color:#1d4ed8; }
     .logged-in-bar { background:var(--pink-light); border-bottom:1px solid var(--border); padding:6px 16px; font-size:12px; color:var(--pink); display:flex; justify-content:space-between; align-items:center; font-weight:600; }
+
+    .month-filter-row { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
+    .month-pill { padding:6px 14px; border-radius:20px; border:1.5px solid var(--border2); background:var(--bg); color:var(--text2); font-size:13px; font-weight:600; cursor:pointer; font-family:var(--font); white-space:nowrap; -webkit-tap-highlight-color:transparent; }
+    .month-pill.active { background:var(--pink); color:white; border-color:var(--pink); }
     .entry-delete { background: #fee2e2; border: none; cursor: pointer; color: #dc2626; font-size: 14px; padding: 4px 8px; margin-left: 4px; border-radius: 6px; }
     .entry-delete:hover { color: var(--pink); }
     .entry-edit { background: var(--pink); border: none; cursor: pointer; color: white; font-size: 14px; padding: 4px 8px; margin-left: 6px; border-radius: 6px; }
@@ -326,11 +330,10 @@
 
   <!-- ENTRIES PANEL -->
   <div id="panel-entries" class="panel">
-    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-      <select id="monthFilter" onchange="updateStats();renderEntries();" style="flex:1;font-size:14px;padding:10px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-family:var(--font);">
-      </select>
-      <button onclick="document.getElementById('monthFilter').value='all';updateStats();renderEntries();" style="padding:10px 14px;font-size:13px;border:1.5px solid var(--border2);border-radius:8px;background:var(--bg);color:var(--text2);cursor:pointer;white-space:nowrap;font-family:var(--font);">All time</button>
+    <div class="month-filter-row" id="monthPills">
+      <button class="month-pill active" onclick="selectMonth('all',this)">All time</button>
     </div>
+    <select id="monthFilter" style="display:none;"></select>
     <div class="stats-row">
       <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value" id="statTotal">₱0</div></div>
       <div class="stat-card"><div class="stat-label">Receipts</div><div class="stat-value" id="statCount">0</div></div>
@@ -1202,19 +1205,27 @@
   }
 
   function populateMonthFilter() {
-    const sel = document.getElementById('monthFilter');
     const months = {};
     entries.forEach(e => { if (e.date) { const d = e.date.slice(0,7); months[d] = true; } });
     const sorted = Object.keys(months).sort().reverse();
-    const now = new Date();
-    const thisMonth = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0');
-    sel.innerHTML = '<option value="all">All time</option>' +
-      sorted.map(m => {
-        const [y,mo] = m.split('-');
-        const label = new Date(y, parseInt(mo)-1).toLocaleDateString('en-PH',{month:'long',year:'numeric'});
-        return '<option value="'+m+'"'+(m===thisMonth?' selected':'')+'>'+label+'</option>';
-      }).join('');
-    if (!sorted.includes(thisMonth)) sel.value = sorted[0] || 'all';
+    const currentVal = document.getElementById('monthFilter').value || 'all';
+    const pills = document.getElementById('monthPills');
+    if (!pills) return;
+    pills.innerHTML = '<button class="month-pill' + (currentVal==='all'?' active':'') + '" onclick="selectMonth('all',this)">All time</button>';
+    sorted.forEach(m => {
+      const [y,mo] = m.split('-');
+      const label = new Date(y, parseInt(mo)-1).toLocaleDateString('en-PH',{month:'long',year:'numeric'});
+      const isActive = currentVal === m;
+      pills.innerHTML += '<button class="month-pill' + (isActive?' active':'') + '" onclick="selectMonth('' + m + '',this)">' + label + '</button>';
+    });
+  }
+
+  function selectMonth(val, btn) {
+    document.getElementById('monthFilter').value = val;
+    document.querySelectorAll('.month-pill').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    updateStats();
+    renderEntries();
   }
 
   function getFilteredByMonth() {
