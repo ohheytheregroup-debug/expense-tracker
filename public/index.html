@@ -1316,7 +1316,35 @@
     clearTimeout(t._timer); t._timer = setTimeout(()=>t.classList.remove('show'), 3200);
   }
 
-  load();
+  function showSettingsForRole(role) {
+    document.getElementById('profileCard').style.display = 'block';
+    document.getElementById('ownerAccountsCard').style.display = role === 'owner' ? 'block' : 'none';
+    document.getElementById('sheetsSyncCard').style.display = role === 'owner' ? 'block' : 'none';
+    document.getElementById('dangerZoneCard').style.display = role === 'owner' ? 'block' : 'none';
+  }
+  initAccounts();
+  renderAccountsList();
+  (function startApp() {
+    try {
+      var sess = JSON.parse(localStorage.getItem('oht_session') || 'null');
+      if (sess && sess.name && sess.password) {
+        var accs = getAccounts() || [];
+        var match = null;
+        for (var i=0; i<accs.length; i++) { if (accs[i].name===sess.name && accs[i].password===sess.password) { match=accs[i]; break; } }
+        if (match) {
+          currentUser = match;
+          document.getElementById('loginScreen').style.display = 'none';
+          document.getElementById('loggedInBar').style.display = 'flex';
+          document.getElementById('loggedInName').textContent = '👤 ' + match.name + (match.role==='owner' ? ' (Owner)' : '');
+          localStorage.setItem('xpense_uploader', match.name);
+          showSettingsForRole(match.role);
+          loadAndFilter();
+          return;
+        }
+      }
+    } catch(e) {}
+    document.getElementById('loginScreen').style.display = 'flex';
+  })();
 </script>
 </body>
 </html>
