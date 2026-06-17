@@ -100,6 +100,30 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: r.ok, status: r.status });
     }
 
+    if (body.action === 'get-accounts') {
+      const r = await fetch(`${SUPABASE_URL}/rest/v1/oht_accounts?order=id.asc`, {
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      const data = await r.json();
+      return res.status(200).json({ success: r.ok, accounts: data });
+    }
+
+    if (body.action === 'save-accounts') {
+      // Delete all then reinsert
+      await fetch(`${SUPABASE_URL}/rest/v1/oht_accounts?id=gte.0`, {
+        method: 'DELETE',
+        headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+      });
+      if (body.accounts && body.accounts.length > 0) {
+        await fetch(`${SUPABASE_URL}/rest/v1/oht_accounts`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}`, 'Prefer': 'return=minimal' },
+          body: JSON.stringify(body.accounts)
+        });
+      }
+      return res.status(200).json({ success: true });
+    }
+
     if (body.action === 'sync-all') {
       // Full mirror sync - clears each month tab and rewrites from scratch
       try {
