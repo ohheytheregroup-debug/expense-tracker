@@ -932,46 +932,32 @@
     const status = document.getElementById('syncStatus');
     btn.disabled = true;
     btn.textContent = 'Syncing...';
-    status.textContent = '';
-    let success = 0, failed = 0;
-    for (let i = 0; i < entries.length; i++) {
-      const e = entries[i];
-      status.textContent = `Syncing ${i+1} of ${entries.length}...`;
-      try {
-        await fetch('/api/claude', {
-          method: 'POST',
-          headers: {'Content-Type':'application/json'},
-          body: JSON.stringify({
-            action: 'sync-sheet',
-            entry: (function() {
-              const vatType = e.vatType || 'inclusive';
-              const disc = e.discount || 0;
-              const amt = parseFloat(e.amount) || 0;
-              const netAmt = amt - disc;
-              let vatableSales = e.vatableSales || 0;
-              let vatAmount = e.vatAmount || 0;
-              if (!e.vatableSales) {
-                if (vatType === 'inclusive') { vatAmount = netAmt * (12/112); vatableSales = netAmt - vatAmount; }
-                else if (vatType === 'exclusive') { vatableSales = netAmt; vatAmount = netAmt * 0.12; }
-              }
-              return {
-                date: e.date, company: e.company, tin: e.tin, address: e.address,
-                amount: e.amount, discount: disc, vat_type: vatType,
-                vatable_sales: Math.round(vatableSales * 100) / 100,
-                vat_amount: Math.round(vatAmount * 100) / 100,
-                category: e.category, payment: e.payment, owner: e.owner,
-                uploader: e.uploader, notes: e.notes, saved_at: e.savedAt
-              };
-            })()
-          })
-        });
-        success++;
-      } catch(err) { failed++; }
+    status.textContent = 'Preparing entries...';
+    try {
+      const payload = entries.map(e => ({
+        date: e.date, company: e.company, tin: e.tin, address: e.address,
+        amount: e.amount, discount: e.discount||0, vat_type: e.vatType||'inclusive',
+        vatable_sales: e.vatableSales||0, vat_amount: e.vatAmount||0,
+        category: e.category, payment: e.payment, owner: e.owner,
+        uploader: e.uploader, notes: e.notes, saved_at: e.savedAt
+      }));
+      const resp = await fetch('/api/claude', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ action: 'sync-all', entries: payload })
+      });
+      const result = await resp.json();
+      if (result.success) {
+        status.textContent = `✓ Synced ${result.total} entries across ${result.months} month tab(s).`;
+        showToast('Sheet sync complete! 📊');
+      } else {
+        status.textContent = '✗ Sync failed: ' + (result.detail || 'unknown error');
+      }
+    } catch(err) {
+      status.textContent = '✗ Error: ' + err.message;
     }
     btn.disabled = false;
     btn.textContent = '↑ Sync all entries to Sheet';
-    status.textContent = `✓ Synced ${success} entries${failed ? ', ' + failed + ' failed' : ''}.`;
-    showToast('Sheet sync complete!');
   }
   async function uploadReceiptPhotos(entryId, images, month) {
     const urls = [];
