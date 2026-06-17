@@ -505,8 +505,13 @@
         _accounts = d.accounts;
         return _accounts;
       }
-    } catch(e) {}
-    return null;
+      // If table empty or error, return default owner
+      _accounts = [{ name: 'Owner', role: 'owner', password: 'oht2024' }];
+      return _accounts;
+    } catch(e) {
+      _accounts = [{ name: 'Owner', role: 'owner', password: 'oht2024' }];
+      return _accounts;
+    }
   }
 
   async function saveAccounts(accs) {
@@ -528,7 +533,8 @@
 
   async function doLogin() {
     document.getElementById('loginError').textContent = 'Signing in...';
-    const accs = await getAccounts() || [];
+    const accs = (await getAccounts()) || [];
+    console.log('Accounts loaded:', accs.length, accs.map(a=>a.name));
     const name = document.getElementById('loginAccount').value.trim();
     const pass = document.getElementById('loginPassword').value;
     if (!name) { document.getElementById('loginError').textContent = 'Please enter your name.'; return; }
