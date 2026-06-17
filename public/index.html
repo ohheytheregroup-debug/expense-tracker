@@ -490,26 +490,42 @@
   // ── Auth system ──────────────────────────────────────────────────────────
   let currentUser = null; // { name, role, password }
 
-  function getAccounts() {
-    try { return JSON.parse(localStorage.getItem('oht_accounts') || 'null'); } catch(e) { return null; }
+  let _accounts = null;
+
+  async function getAccounts() {
+    if (_accounts) return _accounts;
+    try {
+      const r = await fetch('/api/claude', { method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ action: 'get-accounts' }) });
+      const d = await r.json();
+      if (d.success && d.accounts && d.accounts.length > 0) {
+        _accounts = d.accounts;
+        return _accounts;
+      }
+    } catch(e) {}
+    return null;
   }
 
-  function saveAccounts(accs) {
-    localStorage.setItem('oht_accounts', JSON.stringify(accs));
+  async function saveAccounts(accs) {
+    _accounts = accs;
+    await fetch('/api/claude', { method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({ action: 'save-accounts', accounts: accs }) });
   }
 
-  function initAccounts() {
-    const existing = getAccounts();
-    // If no accounts or corrupted, reset to default
-    if (!existing || !Array.isArray(existing) || existing.length === 0) {
-      saveAccounts([{ name: 'Owner', role: 'owner', password: 'oht2024' }]);
+  async function initAccounts() {
+    const existing = await getAccounts();
+    if (!existing || existing.length === 0) {
+      const defaults = [{ name: 'Owner', role: 'owner', password: 'oht2024' }];
+      await saveAccounts(defaults);
+      _accounts = defaults;
     }
   }
 
-  function renderLoginAccounts() { /* no-op: now text input */ }
+  async function renderLoginAccounts() { /* no-op: now text input */ }
 
-  function doLogin() {
-    const accs = getAccounts() || [];
+  async function doLogin() {
+    document.getElementById('loginError').textContent = 'Signing in...';
+    const accs = await getAccounts() || [];
     const name = document.getElementById('loginAccount').value.trim();
     const pass = document.getElementById('loginPassword').value;
     if (!name) { document.getElementById('loginError').textContent = 'Please enter your name.'; return; }
@@ -562,8 +578,8 @@
     });
   }
 
-  function renderAccountsList() {
-    const accs = getAccounts() || [];
+  async function renderAccountsList() {
+    const accs = await getAccounts() || [];
     const el = document.getElementById('accountsList');
     if (!el) return;
     el.innerHTML = accs.map((a,i) =>
@@ -575,30 +591,30 @@
     ).join('');
   }
 
-  function addAccount() {
+  async function addAccount() {
     const name = document.getElementById('newAccName').value.trim();
     const role = document.getElementById('newAccRole').value;
     const pass = document.getElementById('newAccPass').value;
     if (!name || !pass) { showToast('Name and password required.'); return; }
-    const accs = getAccounts() || [];
+    const accs = await getAccounts() || [];
     if (accs.find(a => a.name === name)) { showToast('Account name already exists.'); return; }
     accs.push({ name, role, password: pass });
-    saveAccounts(accs);
+    await saveAccounts(accs);
+    _accounts = accs;
     renderAccountsList();
-    renderLoginAccounts();
     document.getElementById('newAccName').value = '';
     document.getElementById('newAccPass').value = '';
     showToast('Account added!');
   }
 
-  function deleteAccount(i) {
-    const accs = getAccounts() || [];
+  async function deleteAccount(i) {
+    const accs = await getAccounts() || [];
     if (accs.length <= 1) { showToast('Cannot delete the last account.'); return; }
     if (!confirm(`Delete account "${accs[i].name}"?`)) return;
     accs.splice(i, 1);
-    saveAccounts(accs);
+    await saveAccounts(accs);
+    _accounts = accs;
     renderAccountsList();
-    renderLoginAccounts();
     showToast('Account deleted.');
   }
   // ── End auth system ──────────────────────────────────────────────────────
