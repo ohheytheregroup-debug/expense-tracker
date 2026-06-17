@@ -136,8 +136,8 @@
     .account-role-badge.staff { background:#eff6ff; color:#1d4ed8; }
     .logged-in-bar { background:var(--pink-light); border-bottom:1px solid var(--border); padding:6px 16px; font-size:12px; color:var(--pink); display:flex; justify-content:space-between; align-items:center; font-weight:600; }
 
-    .month-filter-row { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; }
-    .month-pill { padding:6px 14px; border-radius:20px; border:1.5px solid var(--border2); background:var(--bg); color:var(--text2); font-size:13px; font-weight:600; cursor:pointer; font-family:var(--font); white-space:nowrap; -webkit-tap-highlight-color:transparent; }
+    .month-filter-row { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; position:relative; z-index:10; }
+    .month-pill { padding:6px 14px; border-radius:20px; border:1.5px solid var(--border2); background:var(--bg); color:var(--text2); font-size:13px; font-weight:600; cursor:pointer; font-family:var(--font); white-space:nowrap; -webkit-tap-highlight-color:transparent; position:relative; z-index:10; pointer-events:auto; touch-action:manipulation; }
     .month-pill.active { background:var(--pink); color:white; border-color:var(--pink); }
     .entry-delete { background: #fee2e2; border: none; cursor: pointer; color: #dc2626; font-size: 14px; padding: 4px 8px; margin-left: 4px; border-radius: 6px; }
     .entry-delete:hover { color: var(--pink); }
@@ -330,7 +330,7 @@
 
   <!-- ENTRIES PANEL -->
   <div id="panel-entries" class="panel">
-    <div class="month-filter-row" id="monthPills">
+    <div class="month-filter-row" id="monthPills" style="position:relative;z-index:10;">
       <button class="month-pill active" data-month="all">All time</button>
     </div>
     <select id="monthFilter" style="display:none;"></select>
