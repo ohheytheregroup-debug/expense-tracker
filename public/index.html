@@ -387,7 +387,7 @@
         <button onclick="addAccount()" style="margin-top:8px;padding:8px 16px;font-size:13px;background:var(--pink);color:white;border:none;border-radius:8px;cursor:pointer;font-family:var(--font);font-weight:600;">Add account</button>
       </div>
     </div>
-    <div class="card" style="display:none;">
+    <div class="card" id="profileCard">
       <h3 style="font-size:15px;font-weight:700;margin-bottom:1rem;">👤 Your profile</h3>
       <div class="gs-setup">
         <div class="field">
@@ -537,6 +537,7 @@
     // Auto-fill uploader
     localStorage.setItem('xpense_uploader', acc.name);
     // Show owner-only UI
+    document.getElementById('profileCard').style.display = 'block';
     if (acc.role === 'owner') {
       document.getElementById('ownerAccountsCard').style.display = 'block';
       document.getElementById('dangerZoneCard').style.display = 'block';
