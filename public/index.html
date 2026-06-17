@@ -1200,24 +1200,36 @@
     const currentVal = document.getElementById('monthFilter').value || 'all';
     const pills = document.getElementById('monthPills');
     if (!pills) return;
-    const btns = [{ val: 'all', label: 'All time' }].concat(sorted.map(m => {
+    const allMonths = ['all'].concat(sorted);
+    const labels = { 'all': 'All time' };
+    sorted.forEach(m => {
       const [y,mo] = m.split('-');
-      return { val: m, label: new Date(y, parseInt(mo)-1).toLocaleDateString('en-PH',{month:'long',year:'numeric'}) };
-    }));
-    pills.innerHTML = '';
-    btns.forEach(b => {
-      const btn = document.createElement('button');
-      btn.className = 'month-pill' + (currentVal === b.val ? ' active' : '');
-      btn.textContent = b.label;
-      btn.addEventListener('click', function() { selectMonth(b.val, this); });
-      pills.appendChild(btn);
+      labels[m] = new Date(y, parseInt(mo)-1).toLocaleDateString('en-PH',{month:'long',year:'numeric'});
     });
+    // Store months on the container for event delegation
+    pills._months = labels;
+    pills.innerHTML = allMonths.map(m =>
+      '<button class="month-pill' + (currentVal === m ? ' active' : '') + '" data-month="' + m + '">' + labels[m] + '</button>'
+    ).join('');
   }
 
-  function selectMonth(val, btn) {
+  // Single delegated click handler on the pills container
+  document.addEventListener('DOMContentLoaded', function() {
+    document.getElementById('monthPills').addEventListener('click', function(e) {
+      const btn = e.target.closest('.month-pill');
+      if (!btn) return;
+      const val = btn.dataset.month;
+      document.getElementById('monthFilter').value = val;
+      document.querySelectorAll('#monthPills .month-pill').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      updateStats();
+      renderEntries();
+    });
+  });
+
+  function selectMonth(val) {
     document.getElementById('monthFilter').value = val;
-    document.querySelectorAll('#monthPills .month-pill').forEach(b => b.classList.remove('active'));
-    if (btn) btn.classList.add('active');
+    document.querySelectorAll('#monthPills .month-pill').forEach(b => b.classList.toggle('active', b.dataset.month === val));
     updateStats();
     renderEntries();
   }
