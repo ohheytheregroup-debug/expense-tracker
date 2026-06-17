@@ -1200,7 +1200,7 @@
     const currentVal = document.getElementById('monthFilter').value || 'all';
     const pills = document.getElementById('monthPills');
     if (!pills) return;
-    pills.innerHTML = '<button class="month-pill' + (currentVal==='all'?' active':'') + '" onclick="selectMonth('all',this)">All time</button>';
+    pills.innerHTML = '<button class="month-pill' + (currentVal==="all"?' active':'') + '" onclick="selectMonth(&quot;all&quot;,this)">All time</button>';
     sorted.forEach(m => {
       const [y,mo] = m.split('-');
       const label = new Date(y, parseInt(mo)-1).toLocaleDateString('en-PH',{month:'long',year:'numeric'});
