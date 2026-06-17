@@ -176,7 +176,7 @@
 <body>
 
 
-<div id="loginScreen" class="login-screen">
+<div id="loginScreen" class="login-screen" style="display:none;">
   <div class="login-logo">OHT</div>
   <div class="login-sub">Expense Tracker</div>
   <div class="login-card">
@@ -331,7 +331,7 @@
   <!-- ENTRIES PANEL -->
   <div id="panel-entries" class="panel">
     <div class="month-filter-row" id="monthPills">
-      <button class="month-pill active" onclick="selectMonth('all',this)">All time</button>
+      <button class="month-pill active" data-month="all">All time</button>
     </div>
     <select id="monthFilter" style="display:none;"></select>
     <div class="stats-row">
@@ -552,7 +552,7 @@
   function doLogout() {
     currentUser = null;
     localStorage.removeItem('oht_session');
-    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('loginScreen').style.display = 'flex'; document.getElementById('loginScreen').style.zIndex = '9999';
     document.getElementById('loggedInBar').style.display = 'none';
     document.getElementById('loginPassword').value = '';
     document.getElementById('loginError').textContent = '';
