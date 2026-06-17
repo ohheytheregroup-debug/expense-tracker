@@ -537,10 +537,7 @@
     // Auto-fill uploader
     localStorage.setItem('xpense_uploader', acc.name);
     // Show owner-only UI
-    showSettingsForRole(acc.role); else {
-      document.getElementById('dangerZoneCard').style.display = 'none';
-    }
-    renderAccountsList();
+    showSettingsForRole(acc.role);    renderAccountsList();
     loadAndFilter();
   }
 
