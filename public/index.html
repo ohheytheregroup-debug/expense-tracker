@@ -189,7 +189,7 @@
       <label>Password</label>
       <input type="password" id="loginPassword" placeholder="Enter your password" onkeydown="if(event.key==='Enter')doLogin()">
     </div>
-    <button class="login-btn" onclick="doLogin()">Sign in</button>
+    <button class="login-btn" onclick="try{doLogin()}catch(e){document.getElementById('loginError').textContent='JS Error: '+e.message}">Sign in</button>
     <div class="login-error" id="loginError"></div>
   </div>
 </div>
