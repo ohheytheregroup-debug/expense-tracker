@@ -492,15 +492,23 @@
   // ── Auth system ──────────────────────────────────────────────────────────
   let currentUser = null; // { name, role, password }
 
-  // Simple sync account management stored in localStorage
-  const DEFAULT_ACCOUNTS = [{ name: 'Owner', role: 'owner', password: 'oht2024' }];
+  // Accounts - stored in localStorage but seeded with defaults on every device
+  const DEFAULT_ACCOUNTS = [
+    { name: 'Owner', role: 'owner', password: 'oht2024' },
+    { name: 'ohtsupervisor', role: 'staff', password: 'oht2024' }
+  ];
 
   function getAccounts() {
     try {
       const stored = JSON.parse(localStorage.getItem('oht_accounts') || 'null');
-      if (stored && Array.isArray(stored) && stored.length > 0) return stored;
+      if (stored && Array.isArray(stored) && stored.length > 0) {
+        // Merge: ensure default accounts always exist
+        const names = stored.map(a => a.name);
+        DEFAULT_ACCOUNTS.forEach(d => { if (!names.includes(d.name)) stored.push(d); });
+        return stored;
+      }
     } catch(e) {}
-    return DEFAULT_ACCOUNTS;
+    return [...DEFAULT_ACCOUNTS];
   }
 
   function saveAccounts(accs) {
@@ -508,10 +516,9 @@
   }
 
   function initAccounts() {
+    // Always seed defaults so every device has all accounts
     const existing = getAccounts();
-    if (!existing || existing.length === 0) {
-      saveAccounts(DEFAULT_ACCOUNTS);
-    }
+    saveAccounts(existing);
   }
 
   function renderLoginAccounts() { /* no-op: now text input */ }
