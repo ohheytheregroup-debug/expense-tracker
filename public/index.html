@@ -567,7 +567,8 @@
   function loadAndFilter() {
     load().then(() => {
       if (currentUser && currentUser.role === 'staff') {
-        entries = entries.filter(e => e.uploader === currentUser.name);
+        const uname = currentUser.name.toLowerCase();
+        entries = entries.filter(e => !e.uploader || e.uploader.toLowerCase() === uname);
       }
       renderEntries();
       updateStats();
