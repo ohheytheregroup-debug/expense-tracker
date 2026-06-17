@@ -369,7 +369,7 @@
 
   <!-- SETTINGS PANEL -->
   <div id="panel-settings" class="panel">
-    <div class="card" id="ownerAccountsCard" style="display:none;">
+    <div class="card" id="ownerAccountsCard">
       <h3 style="font-size:15px;font-weight:700;margin-bottom:1rem;">🔐 Accounts</h3>
       <div id="accountsList" style="margin-bottom:12px;"></div>
       <div style="border-top:1px solid var(--border);padding-top:12px;margin-top:4px;">
@@ -397,13 +397,13 @@
         </div>
       </div>
     </div>
-    <div class="card" id="sheetsSyncCard" style="display:none;">
+    <div class="card" id="sheetsSyncCard">
       <h3 style="font-size:15px;font-weight:700;margin-bottom:8px;">📊 Google Sheets Sync</h3>
       <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">All new expenses auto-sync. Use this to push all existing entries to the sheet.</p>
       <button id="syncAllBtn" onclick="syncAllToSheets()" style="padding:8px 16px;font-size:13px;background:var(--pink);color:white;border:none;border-radius:8px;cursor:pointer;font-family:var(--font);font-weight:600;">↑ Sync all entries to Sheet</button>
       <div id="syncStatus" style="font-size:12px;color:var(--text3);margin-top:8px;"></div>
     </div>
-    <div class="card" id="dangerZoneCard" style="display:none;">
+    <div class="card" id="dangerZoneCard">
       <h3 style="font-size:15px;font-weight:700;margin-bottom:8px;color:#e74c3c;">🗑️ Danger zone</h3>
       <p style="font-size:13px;color:var(--text2);margin-bottom:12px;">Clear all saved expenses from this device.</p>
       <button onclick="clearAll()" style="padding:8px 16px;font-size:13px;border:1.5px solid #e74c3c;border-radius:var(--radius-sm);background:transparent;color:#e74c3c;cursor:pointer;font-family:var(--font);">Clear all data</button>
