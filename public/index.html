@@ -1209,15 +1209,15 @@
       const btn = document.createElement('button');
       btn.className = 'month-pill' + (currentVal === b.val ? ' active' : '');
       btn.textContent = b.label;
-      btn.onclick = () => selectMonth(b.val, btn);
+      btn.addEventListener('click', function() { selectMonth(b.val, this); });
       pills.appendChild(btn);
     });
   }
 
   function selectMonth(val, btn) {
     document.getElementById('monthFilter').value = val;
-    document.querySelectorAll('.month-pill').forEach(b => b.classList.remove('active'));
-    btn.classList.add('active');
+    document.querySelectorAll('#monthPills .month-pill').forEach(b => b.classList.remove('active'));
+    if (btn) btn.classList.add('active');
     updateStats();
     renderEntries();
   }
