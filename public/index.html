@@ -537,7 +537,8 @@
     // Auto-fill uploader
     localStorage.setItem('xpense_uploader', acc.name);
     // Show owner-only UI
-    showSettingsForRole(acc.role);    renderAccountsList();
+    showSettingsForRole(acc.role);    showSettingsForRole(acc.role);
+    renderAccountsList();
     loadAndFilter();
   }
 
