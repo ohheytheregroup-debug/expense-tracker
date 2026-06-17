@@ -825,7 +825,31 @@
     }
     if (!date) date = new Date().toISOString().split('T')[0];
     let amount = '';
-    for (const pat of [/(?:grand\s+total|total\s+amount\s+due|amount\s+due|total\s+due|total)[:\s]*(?:PHP|₱|P)?\s*([\d,]+\.?\d{0,2})/i,/(?:PHP|₱|P)\s*([\d,]+\.\d{2})/i,/TOTAL[:\s]*([\d,]+\.\d{2})/i]) { const m=text.match(pat); if(m){amount=m[1].replace(/,/g,'');break;} }
+    // Priority order: most specific total fields first
+    const amountPatterns = [
+      /total\s+amount\s+due[:\s]*(?:PHP|₱|P)?\s*([\d,]+\.?\d{0,2})/i,
+      /amount\s+due[:\s]*(?:PHP|₱|P)?\s*([\d,]+\.?\d{0,2})/i,
+      /total\s+due[:\s]*(?:PHP|₱|P)?\s*([\d,]+\.?\d{0,2})/i,
+      /grand\s+total[:\s]*(?:PHP|₱|P)?\s*([\d,]+\.?\d{0,2})/i,
+      /total\s+amount[:\s]*(?:PHP|₱|P)?\s*([\d,]+\.?\d{0,2})/i,
+      /(?:^|\n)\s*total[:\s]*(?:PHP|₱|P)?\s*([\d,]+\.?\d{0,2})/im,
+      /(?:PHP|₱|P)\s*([\d,]+\.\d{2})/i,
+    ];
+    for (const pat of amountPatterns) {
+      const m = text.match(pat);
+      if (m) { amount = m[1].replace(/,/g, ''); break; }
+    }
+    // Last resort: find the largest number on a line that contains total/due/amount keywords
+    if (!amount) {
+      const lines = text.split('\n');
+      for (const line of lines) {
+        if (/total|amount due|due|grand/i.test(line)) {
+          const m = line.match(/([\d,]+\.\d{2})/);
+          if (m) { amount = m[1].replace(/,/g,''); break; }
+        }
+      }
+    }
+    // Final fallback: largest number in receipt
     if (!amount) { const ns=[...text.matchAll(/([\d,]+\.\d{2})/g)].map(m=>parseFloat(m[1].replace(/,/g,''))); if(ns.length) amount=String(Math.max(...ns)); }
     let al=[], pc=false;
     const ak=/\b(st\.|street|ave\.|avenue|road|rd\.|blvd|floor|bldg|building|brgy|barangay|city|manila|quezon|makati|cebu|davao|philippines)\b/i;
