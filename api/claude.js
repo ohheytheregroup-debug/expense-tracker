@@ -107,16 +107,9 @@ export default async function handler(req, res) {
         const token = await getGoogleToken();
         const HEADERS = ['Date','Company','TIN','Address','Amount','Discount','VAT Type','Vatable Sales','VAT Amount','Category','Payment','Owner','Uploader','Notes','Saved At'];
 
-        // Group entries by month
-        const byMonth = {};
-        for (const e of entries) {
-          const date = e.date || '';
-          let month;
-          try { month = new Date(date).toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }); }
-          catch { month = 'Unknown'; }
-          if (!byMonth[month]) byMonth[month] = [];
-          byMonth[month].push(e);
-        }
+        // Use provided month or group
+        const month = body.month;
+        const byMonth = { [month]: entries };
 
         // Get existing sheet tabs
         const sheetResp = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties`, {
@@ -126,7 +119,6 @@ export default async function handler(req, res) {
         const existingTabs = new Set(sheetData.sheets?.map(s => s.properties.title) || []);
 
         for (const [month, monthEntries] of Object.entries(byMonth)) {
-          // Create tab if missing
           if (!existingTabs.has(month)) {
             await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`, {
               method: 'POST',
@@ -134,11 +126,9 @@ export default async function handler(req, res) {
               body: JSON.stringify({ requests: [{ addSheet: { properties: { title: month } } }] })
             });
           }
-          // Clear the tab first
-          await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(month)}!A:O:clear`, {
+          await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(month + '!A:O')}:clear`, {
             method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
           });
-          // Write header + all rows at once
           const rows = [HEADERS, ...monthEntries.map(e => {
             const vatType = e.vat_type || 'inclusive';
             const disc = parseFloat(e.discount) || 0;
