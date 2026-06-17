@@ -537,12 +537,7 @@
     // Auto-fill uploader
     localStorage.setItem('xpense_uploader', acc.name);
     // Show owner-only UI
-    document.getElementById('profileCard').style.display = 'block';
-    if (acc.role === 'owner') {
-      document.getElementById('ownerAccountsCard').style.display = 'block';
-      document.getElementById('dangerZoneCard').style.display = 'block';
-      document.getElementById('sheetsSyncCard').style.display = 'block';
-    } else {
+    showSettingsForRole(acc.role); else {
       document.getElementById('dangerZoneCard').style.display = 'none';
     }
     renderAccountsList();
