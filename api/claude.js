@@ -100,6 +100,72 @@ export default async function handler(req, res) {
       return res.status(200).json({ success: r.ok, status: r.status });
     }
 
+    if (body.action === 'sync-all') {
+      // Full mirror sync - clears each month tab and rewrites from scratch
+      try {
+        const entries = body.entries;
+        const token = await getGoogleToken();
+        const HEADERS = ['Date','Company','TIN','Address','Amount','Discount','VAT Type','Vatable Sales','VAT Amount','Category','Payment','Owner','Uploader','Notes','Saved At'];
+
+        // Group entries by month
+        const byMonth = {};
+        for (const e of entries) {
+          const date = e.date || '';
+          let month;
+          try { month = new Date(date).toLocaleString('en-US', { month: 'long', year: 'numeric', timeZone: 'UTC' }); }
+          catch { month = 'Unknown'; }
+          if (!byMonth[month]) byMonth[month] = [];
+          byMonth[month].push(e);
+        }
+
+        // Get existing sheet tabs
+        const sheetResp = await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}?fields=sheets.properties`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        const sheetData = await sheetResp.json();
+        const existingTabs = new Set(sheetData.sheets?.map(s => s.properties.title) || []);
+
+        for (const [month, monthEntries] of Object.entries(byMonth)) {
+          // Create tab if missing
+          if (!existingTabs.has(month)) {
+            await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}:batchUpdate`, {
+              method: 'POST',
+              headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+              body: JSON.stringify({ requests: [{ addSheet: { properties: { title: month } } }] })
+            });
+          }
+          // Clear the tab first
+          await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(month)}!A:O:clear`, {
+            method: 'POST', headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
+          });
+          // Write header + all rows at once
+          const rows = [HEADERS, ...monthEntries.map(e => {
+            const vatType = e.vat_type || 'inclusive';
+            const disc = parseFloat(e.discount) || 0;
+            const amt = parseFloat(e.amount) || 0;
+            const net = amt - disc;
+            let vs = parseFloat(e.vatable_sales) || 0;
+            let va = parseFloat(e.vat_amount) || 0;
+            if (!vs && vatType === 'inclusive') { va = net*(12/112); vs = net-va; }
+            else if (!vs && vatType === 'exclusive') { vs = net; va = net*0.12; }
+            return [
+              e.date||'', e.company||'', e.tin||'', e.address||'',
+              e.amount||0, disc, vatType,
+              Math.round(vs*100)/100, Math.round(va*100)/100,
+              e.category||'', e.payment||'', e.owner||'',
+              e.uploader||'', e.notes||'', e.saved_at||''
+            ];
+          })];
+          await fetch(`https://sheets.googleapis.com/v4/spreadsheets/${SHEET_ID}/values/${encodeURIComponent(month+'!A1')}?valueInputOption=RAW`, {
+            method: 'PUT',
+            headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ values: rows })
+          });
+        }
+        return res.status(200).json({ success: true, months: Object.keys(byMonth).length, total: entries.length });
+      } catch(err) { return res.status(200).json({ success: false, detail: err.message }); }
+    }
+
     if (body.action === 'sync-sheet') {
       try {
         const e = body.entry;
