@@ -330,10 +330,9 @@
 
   <!-- ENTRIES PANEL -->
   <div id="panel-entries" class="panel">
-    <div class="month-filter-row" id="monthPills" style="position:relative;z-index:10;">
-      <button class="month-pill active" data-month="all">All time</button>
+    <div style="display:flex;gap:8px;margin-bottom:12px;">
+      <select id="monthFilter" onchange="updateStats();renderEntries();" style="flex:1;font-size:14px;padding:10px 12px;border-radius:8px;border:1px solid var(--border2);background:var(--bg2);color:var(--text);font-family:var(--font);"></select>
     </div>
-    <select id="monthFilter" style="display:none;"></select>
     <div class="stats-row">
       <div class="stat-card"><div class="stat-label">Total</div><div class="stat-value" id="statTotal">₱0</div></div>
       <div class="stat-card"><div class="stat-label">Receipts</div><div class="stat-value" id="statCount">0</div></div>
@@ -1194,45 +1193,20 @@
   }
 
   function populateMonthFilter() {
+    const sel = document.getElementById('monthFilter');
+    if (!sel) return;
     const months = {};
     entries.forEach(e => { if (e.date) { const d = e.date.slice(0,7); months[d] = true; } });
     const sorted = Object.keys(months).sort().reverse();
-    const currentVal = document.getElementById('monthFilter').value || 'all';
-    const pills = document.getElementById('monthPills');
-    if (!pills) return;
-    const allMonths = ['all'].concat(sorted);
-    const labels = { 'all': 'All time' };
-    sorted.forEach(m => {
+    const currentVal = sel.value || 'all';
+    sel.innerHTML = '<option value="all">All time</option>' + sorted.map(m => {
       const [y,mo] = m.split('-');
-      labels[m] = new Date(y, parseInt(mo)-1).toLocaleDateString('en-PH',{month:'long',year:'numeric'});
-    });
-    // Store months on the container for event delegation
-    pills._months = labels;
-    pills.innerHTML = allMonths.map(m =>
-      '<button class="month-pill' + (currentVal === m ? ' active' : '') + '" data-month="' + m + '">' + labels[m] + '</button>'
-    ).join('');
+      const label = new Date(y, parseInt(mo)-1).toLocaleDateString('en-PH',{month:'long',year:'numeric'});
+      return '<option value="' + m + '"' + (currentVal === m ? ' selected' : '') + '>' + label + '</option>';
+    }).join('');
   }
 
-  // Single delegated click handler on the pills container
-  document.addEventListener('DOMContentLoaded', function() {
-    document.getElementById('monthPills').addEventListener('click', function(e) {
-      const btn = e.target.closest('.month-pill');
-      if (!btn) return;
-      const val = btn.dataset.month;
-      document.getElementById('monthFilter').value = val;
-      document.querySelectorAll('#monthPills .month-pill').forEach(b => b.classList.remove('active'));
-      btn.classList.add('active');
-      updateStats();
-      renderEntries();
-    });
-  });
 
-  function selectMonth(val) {
-    document.getElementById('monthFilter').value = val;
-    document.querySelectorAll('#monthPills .month-pill').forEach(b => b.classList.toggle('active', b.dataset.month === val));
-    updateStats();
-    renderEntries();
-  }
 
   function getFilteredByMonth() {
     const sel = document.getElementById('monthFilter');
