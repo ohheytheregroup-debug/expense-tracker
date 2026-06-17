@@ -1200,12 +1200,17 @@
     const currentVal = document.getElementById('monthFilter').value || 'all';
     const pills = document.getElementById('monthPills');
     if (!pills) return;
-    pills.innerHTML = '<button class="month-pill' + (currentVal==="all"?' active':'') + '" onclick="selectMonth(&quot;all&quot;,this)">All time</button>';
-    sorted.forEach(m => {
+    const btns = [{ val: 'all', label: 'All time' }].concat(sorted.map(m => {
       const [y,mo] = m.split('-');
-      const label = new Date(y, parseInt(mo)-1).toLocaleDateString('en-PH',{month:'long',year:'numeric'});
-      const isActive = currentVal === m;
-      pills.innerHTML += '<button class="month-pill' + (isActive?' active':'') + '" onclick="selectMonth('' + m + '',this)">' + label + '</button>';
+      return { val: m, label: new Date(y, parseInt(mo)-1).toLocaleDateString('en-PH',{month:'long',year:'numeric'}) };
+    }));
+    pills.innerHTML = '';
+    btns.forEach(b => {
+      const btn = document.createElement('button');
+      btn.className = 'month-pill' + (currentVal === b.val ? ' active' : '');
+      btn.textContent = b.label;
+      btn.onclick = () => selectMonth(b.val, btn);
+      pills.appendChild(btn);
     });
   }
 
