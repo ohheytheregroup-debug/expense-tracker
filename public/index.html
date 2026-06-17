@@ -1129,7 +1129,8 @@
   function renderEntries() {
     const cat = document.getElementById('filterCat').value;
     const pay = document.getElementById('filterPay').value;
-    const filtered = entries.filter(e => (!cat || e.category === cat) && (!pay || e.payment === pay));
+    const monthVal = document.getElementById('monthFilter')?.value || 'all';
+    const filtered = entries.filter(e => (!cat || e.category === cat) && (!pay || e.payment === pay) && (monthVal === 'all' || (e.date && e.date.startsWith(monthVal))));
     const list = document.getElementById('entriesList');
     if (!filtered.length) { list.innerHTML = '<div class="empty-state"><div style="font-size:48px;margin-bottom:10px;">🧾</div>No entries yet.<br>Scan your first receipt!</div>'; return; }
     const isLoan = e => e.category === 'Loan - Alex' || e.category === 'Loan - CJ';
