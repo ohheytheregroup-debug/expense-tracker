@@ -583,11 +583,10 @@
   function populateUploaderFilter() {
     const sel = document.getElementById('filterUploader');
     if (!sel) return;
-    const uploaders = {};
-    entries.forEach(e => { if (e.uploader) uploaders[e.uploader] = true; });
     const current = sel.value;
+    const people = ['Owner', 'El', 'Joie', 'Bon'];
     sel.innerHTML = '<option value="">All staff</option>' +
-      Object.keys(uploaders).sort().map(u =>
+      people.map(u =>
         '<option value="' + u + '"' + (current === u ? ' selected' : '') + '>' + u + '</option>'
       ).join('');
   }
