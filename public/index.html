@@ -363,6 +363,9 @@
         <option>Union - CC</option><option>Union - OHT Cafe</option>
         <option>Union - Alexsandria</option><option>Metrobank - OHT Advertising</option>
       </select>
+      <select id="filterUploader" onchange="renderEntries()" style="display:none;">
+        <option value="">All staff</option>
+      </select>
     </div>
     <div id="entriesList"></div>
   </div>
@@ -546,7 +549,8 @@
     // Auto-fill uploader
     localStorage.setItem('xpense_uploader', acc.name);
     // Show owner-only UI
-    showSettingsForRole(acc.role);    showSettingsForRole(acc.role);
+    showSettingsForRole(acc.role);
+    if (acc.role === 'owner') { document.getElementById('filterUploader').style.display = ''; populateUploaderFilter(); }    showSettingsForRole(acc.role);
     renderAccountsList();
     loadAndFilter();
   }
@@ -575,6 +579,18 @@
     });
   }
 
+
+  function populateUploaderFilter() {
+    const sel = document.getElementById('filterUploader');
+    if (!sel) return;
+    const uploaders = {};
+    entries.forEach(e => { if (e.uploader) uploaders[e.uploader] = true; });
+    const current = sel.value;
+    sel.innerHTML = '<option value="">All staff</option>' +
+      Object.keys(uploaders).sort().map(u =>
+        '<option value="' + u + '"' + (current === u ? ' selected' : '') + '>' + u + '</option>'
+      ).join('');
+  }
   function renderAccountsList() {
     const accs = getAccounts() || [];
     const el = document.getElementById('accountsList');
@@ -1149,7 +1165,13 @@
     const cat = document.getElementById('filterCat').value;
     const pay = document.getElementById('filterPay').value;
     const monthVal = document.getElementById('monthFilter')?.value || 'all';
-    const filtered = entries.filter(e => (!cat || e.category === cat) && (!pay || e.payment === pay) && (monthVal === 'all' || (e.date && e.date.startsWith(monthVal))));
+    const uploaderVal = document.getElementById('filterUploader')?.value || '';
+    const filtered = entries.filter(e =>
+      (!cat || e.category === cat) &&
+      (!pay || e.payment === pay) &&
+      (monthVal === 'all' || (e.date && e.date.startsWith(monthVal))) &&
+      (!uploaderVal || (e.uploader || '').toLowerCase() === uploaderVal.toLowerCase())
+    );
     const list = document.getElementById('entriesList');
     if (!filtered.length) { list.innerHTML = '<div class="empty-state"><div style="font-size:48px;margin-bottom:10px;">🧾</div>No entries yet.<br>Scan your first receipt!</div>'; return; }
     const isLoan = e => e.category === 'Loan - Alex' || e.category === 'Loan - CJ';
@@ -1372,6 +1394,7 @@
           document.getElementById('loggedInName').textContent = '👤 ' + match.name + (match.role==='owner' ? ' (Owner)' : '');
           localStorage.setItem('xpense_uploader', match.name);
           showSettingsForRole(match.role);
+    if (match.role === 'owner') { document.getElementById('filterUploader').style.display = ''; populateUploaderFilter(); }
           loadAndFilter();
           return;
         }
