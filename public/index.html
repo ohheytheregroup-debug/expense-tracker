@@ -139,6 +139,10 @@
     .month-filter-row { display:flex; gap:6px; flex-wrap:wrap; margin-bottom:12px; position:relative; z-index:10; }
     .month-pill { padding:6px 14px; border-radius:20px; border:1.5px solid var(--border2); background:var(--bg); color:var(--text2); font-size:13px; font-weight:600; cursor:pointer; font-family:var(--font); white-space:nowrap; -webkit-tap-highlight-color:transparent; position:relative; z-index:10; pointer-events:auto; touch-action:manipulation; }
     .month-pill.active { background:var(--pink); color:white; border-color:var(--pink); }
+
+    .receipt-link { display:inline-flex; align-items:center; gap:5px; margin-top:8px; font-size:12px; font-weight:600; color:var(--pink); text-decoration:none; background:var(--pink-light); border:1px solid var(--pink); padding:4px 10px; border-radius:20px; }
+    .receipt-link:hover { opacity:0.8; }
+    .no-receipt-note { display:inline-flex; align-items:center; gap:5px; margin-top:8px; font-size:12px; color:var(--text3); background:var(--bg2); border:1px solid var(--border); padding:4px 10px; border-radius:20px; }
     .entry-delete { background: #fee2e2; border: none; cursor: pointer; color: #dc2626; font-size: 14px; padding: 4px 8px; margin-left: 4px; border-radius: 6px; }
     .entry-delete:hover { color: var(--pink); }
     .entry-edit { background: var(--pink); border: none; cursor: pointer; color: white; font-size: 14px; padding: 4px 8px; margin-left: 6px; border-radius: 6px; }
@@ -1217,7 +1221,15 @@
         (isLoan(e) ? '<button class="repaid-btn' + (e.repaid ? ' is-repaid' : '') + '" onclick="toggleRepaid(' + e.id + ')">' + (e.repaid ? '✓ Repaid — tap to undo' : 'Mark as repaid') + '</button>' : '') +
         ((e.tin||e.address||e.notes) ? '<div class="entry-sub">' + [e.tin?'TIN: '+e.tin:'', e.address, e.notes].filter(Boolean).join(' · ') + '</div>' : '') +
       (e.vatType ? (function(){ const v=calcVat(e.amount,e.vatType,e.discount||0); const dRow=v.discount>0?'<div class="vat-breakdown-row" style="color:#dc2626;"><span>Less: Discount</span><span>− '+formatPHP(v.discount)+'</span></div>':''; const gRow=v.discount>0?'<div class="vat-breakdown-row"><span>Gross Amount</span><span>'+formatPHP(v.gross)+'</span></div>':''; return '<div class="vat-breakdown" style="margin-top:8px;">' + (e.vatType==='non-vat' ? gRow+dRow+'<div class="vat-breakdown-row total"><span>Non-VAT Amount</span><span>'+formatPHP(v.total)+'</span></div>' : gRow+dRow+'<div class="vat-breakdown-row"><span>Vatable Sales</span><span>'+formatPHP(v.vatableSales)+'</span></div><div class="vat-breakdown-row highlight"><span>VAT (12%)</span><span>'+formatPHP(v.vatAmount)+'</span></div><div class="vat-breakdown-row total"><span>Total</span><span>'+formatPHP(v.total)+'</span></div>') + '</div>'; })() : '') +
-        (e.receiptPhotos && e.receiptPhotos.length ? '<div class="receipt-thumb">' + e.receiptPhotos.map(u => '<a href="'+u+'" target="_blank"><img src="'+u+'" loading="lazy"></a>').join('') + '</div>' : '') +
+        (e.receiptPhotos && e.receiptPhotos.length ?
+        '<div class="receipt-thumb">' +
+        e.receiptPhotos.map((u,i) =>
+          '<a href="'+u+'" target="_blank" class="receipt-link">📎 View Receipt' + (e.receiptPhotos.length > 1 ? ' '+(i+1) : '') + '</a>' +
+          '<a href="'+u+'" target="_blank"><img src="'+u+'" loading="lazy" style="width:60px;height:60px;object-fit:cover;border-radius:8px;border:1.5px solid var(--border2);display:block;margin-top:4px;"></a>'
+        ).join('') +
+        '</div>' :
+        '<span class="no-receipt-note">📄 No receipt photo</span>'
+      ) +
       '</div>'
       ).join('');
     }
