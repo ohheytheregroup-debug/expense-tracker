@@ -143,6 +143,10 @@
     .receipt-link { display:inline-flex; align-items:center; gap:5px; margin-top:8px; font-size:12px; font-weight:600; color:var(--pink); text-decoration:none; background:var(--pink-light); border:1px solid var(--pink); padding:4px 10px; border-radius:20px; }
     .receipt-link:hover { opacity:0.8; }
     .no-receipt-note { display:inline-flex; align-items:center; gap:5px; margin-top:8px; font-size:12px; color:var(--text3); background:var(--bg2); border:1px solid var(--border); padding:4px 10px; border-radius:20px; }
+
+    .upload-receipt-btn { display:inline-flex; align-items:center; gap:5px; margin-top:8px; font-size:12px; font-weight:600; color:var(--text2); background:var(--bg2); border:1.5px dashed var(--border2); padding:4px 10px; border-radius:20px; cursor:pointer; }
+    .upload-receipt-btn:hover { border-color:var(--pink); color:var(--pink); }
+    .upload-receipt-input { display:none; }
     .entry-delete { background: #fee2e2; border: none; cursor: pointer; color: #dc2626; font-size: 14px; padding: 4px 8px; margin-left: 4px; border-radius: 6px; }
     .entry-delete:hover { color: var(--pink); }
     .entry-edit { background: var(--pink); border: none; cursor: pointer; color: white; font-size: 14px; padding: 4px 8px; margin-left: 6px; border-radius: 6px; }
@@ -1030,6 +1034,45 @@
     btn.disabled = false;
     btn.textContent = '↑ Sync all entries to Sheet';
   }
+
+  async function attachReceiptToEntry(event, entryId) {
+    const file = event.target.files[0];
+    if (!file) return;
+    showToast('Uploading receipt...');
+    const reader = new FileReader();
+    reader.onload = async function(ev) {
+      try {
+        const img = new Image();
+        img.onload = async function() {
+          const MAX = 1600;
+          let w = img.width, h = img.height;
+          if (w > MAX || h > MAX) {
+            if (w > h) { h = Math.round(h * MAX / w); w = MAX; }
+            else { w = Math.round(w * MAX / h); h = MAX; }
+          }
+          const canvas = document.createElement('canvas');
+          canvas.width = w; canvas.height = h;
+          canvas.getContext('2d').drawImage(img, 0, 0, w, h);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+          const entry = entries.find(e => e.id === entryId);
+          if (!entry) return;
+          const month = (entry.date || new Date().toISOString().split('T')[0]).substring(0, 7);
+          const urls = await uploadReceiptPhotos(entryId, [{ dataUrl, mimeType: 'image/jpeg' }], month);
+          if (urls.length > 0) {
+            entry.receiptPhotos = [...(entry.receiptPhotos || []), ...urls];
+            await fetch('/api/claude', { method:'POST', headers:{'Content-Type':'application/json'},
+              body: JSON.stringify({ action:'update', id: entryId, fields:{ receipt_photos: JSON.stringify(entry.receiptPhotos) } }) });
+            renderEntries();
+            showToast('Receipt photo attached! 📸');
+          } else {
+            showToast('Upload failed. Try again.');
+          }
+        };
+        img.src = ev.target.result;
+      } catch(e) { showToast('Error: ' + e.message); }
+    };
+    reader.readAsDataURL(file);
+  }
   async function uploadReceiptPhotos(entryId, images, month) {
     const urls = [];
     for (let i = 0; i < images.length; i++) {
@@ -1228,7 +1271,9 @@
           '<a href="'+u+'" target="_blank"><img src="'+u+'" loading="lazy" style="width:60px;height:60px;object-fit:cover;border-radius:8px;border:1.5px solid var(--border2);display:block;margin-top:4px;"></a>'
         ).join('') +
         '</div>' :
-        '<span class="no-receipt-note">📄 No receipt photo</span>'
+        '<label class="upload-receipt-btn" onclick="event.stopPropagation()">📎 Attach receipt' +
+        '<input type="file" accept="image/*" class="upload-receipt-input" onchange="attachReceiptToEntry(event,' + e.id + ')">' +
+        '</label>'
       ) +
       '</div>'
       ).join('');
