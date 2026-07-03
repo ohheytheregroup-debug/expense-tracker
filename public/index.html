@@ -1062,60 +1062,62 @@
 
 
   function openDownloadModal() {
-    // Group entries by month and year
     const byMonth = {}, byYear = {};
     entries.forEach(e => {
       if (!e.date) return;
-      const month = e.date.slice(0, 7); // 2026-06
-      const year = e.date.slice(0, 4);  // 2026
+      const month = e.date.slice(0,7);
+      const year = e.date.slice(0,4);
       if (!byMonth[month]) byMonth[month] = [];
       if (!byYear[year]) byYear[year] = [];
       byMonth[month].push(e);
       byYear[year].push(e);
     });
+    window._dlByMonth = byMonth;
+    window._dlByYear = byYear;
 
     const months = Object.keys(byMonth).sort().reverse();
     const years = Object.keys(byYear).sort().reverse();
-
-    let html = '';
+    const el = document.getElementById('downloadOptions');
+    el.innerHTML = '';
 
     // Per Year
     if (years.length) {
-      html += '<div class="download-group"><div class="download-group-label">By Year</div>';
+      const g = document.createElement('div'); g.className = 'download-group';
+      g.innerHTML = '<div class="download-group-label">By Year</div>';
       years.forEach(y => {
-        const count = byYear[y].length;
-        html += '<div class="download-row">' +
-          '<div class="download-row-label">' + y + '<span>' + count + ' entries</span></div>' +
-          '<div>' +
-          '<button class="dl-btn csv" onclick="downloadCSV(byYear['' + y + ''],'OHT_Expenses_' + y + '')">CSV</button>' +
-          '<button class="dl-btn pdf" onclick="downloadPDFSet(byYear['' + y + ''],'OHT_Expenses_' + y + '')">PDF</button>' +
-          '</div></div>';
+        const row = document.createElement('div'); row.className = 'download-row';
+        row.innerHTML = '<div class="download-row-label">' + y + '<span>' + byYear[y].length + ' entries</span></div><div></div>';
+        const btnCSV = document.createElement('button'); btnCSV.className = 'dl-btn csv'; btnCSV.textContent = 'CSV';
+        btnCSV.onclick = () => downloadCSV(window._dlByYear[y], 'OHT_Expenses_' + y);
+        const btnPDF = document.createElement('button'); btnPDF.className = 'dl-btn pdf'; btnPDF.textContent = 'PDF';
+        btnPDF.onclick = () => downloadPDFSet(window._dlByYear[y], 'OHT_Expenses_' + y);
+        row.querySelector('div:last-child').appendChild(btnCSV);
+        row.querySelector('div:last-child').appendChild(btnPDF);
+        g.appendChild(row);
       });
-      html += '</div>';
+      el.appendChild(g);
     }
 
     // Per Month
     if (months.length) {
-      html += '<div class="download-group"><div class="download-group-label">By Month</div>';
+      const g = document.createElement('div'); g.className = 'download-group';
+      g.innerHTML = '<div class="download-group-label">By Month</div>';
       months.forEach(m => {
         const [y, mo] = m.split('-');
         const label = new Date(y, parseInt(mo)-1).toLocaleDateString('en-PH', {month:'long', year:'numeric'});
-        const count = byMonth[m].length;
-        html += '<div class="download-row">' +
-          '<div class="download-row-label">' + label + '<span>' + count + ' entries</span></div>' +
-          '<div>' +
-          '<button class="dl-btn csv" onclick="downloadCSV(byMonth['' + m + ''],'OHT_Expenses_' + m + '')">CSV</button>' +
-          '<button class="dl-btn pdf" onclick="downloadPDFSet(byMonth['' + m + ''],'OHT_Expenses_' + m + '')">PDF</button>' +
-          '</div></div>';
+        const row = document.createElement('div'); row.className = 'download-row';
+        row.innerHTML = '<div class="download-row-label">' + label + '<span>' + byMonth[m].length + ' entries</span></div><div></div>';
+        const btnCSV = document.createElement('button'); btnCSV.className = 'dl-btn csv'; btnCSV.textContent = 'CSV';
+        btnCSV.onclick = () => downloadCSV(window._dlByMonth[m], 'OHT_Expenses_' + m);
+        const btnPDF = document.createElement('button'); btnPDF.className = 'dl-btn pdf'; btnPDF.textContent = 'PDF';
+        btnPDF.onclick = () => downloadPDFSet(window._dlByMonth[m], 'OHT_Expenses_' + m);
+        row.querySelector('div:last-child').appendChild(btnCSV);
+        row.querySelector('div:last-child').appendChild(btnPDF);
+        g.appendChild(row);
       });
-      html += '</div>';
+      el.appendChild(g);
     }
 
-    // Store refs globally for onclick access
-    window.byMonth = byMonth;
-    window.byYear = byYear;
-
-    document.getElementById('downloadOptions').innerHTML = html;
     document.getElementById('downloadModal').classList.add('open');
   }
 
