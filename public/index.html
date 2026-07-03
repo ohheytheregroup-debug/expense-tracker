@@ -147,6 +147,21 @@
     .upload-receipt-btn { display:inline-flex; align-items:center; gap:5px; margin-top:8px; font-size:12px; font-weight:600; color:var(--text2); background:var(--bg2); border:1.5px dashed var(--border2); padding:4px 10px; border-radius:20px; cursor:pointer; }
     .upload-receipt-btn:hover { border-color:var(--pink); color:var(--pink); }
     .upload-receipt-input { display:none; }
+
+    .download-modal { display:none; position:fixed; inset:0; background:rgba(0,0,0,0.5); z-index:998; align-items:flex-end; justify-content:center; padding:1rem; }
+    .download-modal.open { display:flex; }
+    .download-sheet { background:var(--bg); border-radius:16px 16px 16px 16px; padding:1.2rem; width:100%; max-width:480px; max-height:80vh; overflow-y:auto; }
+    .download-sheet h3 { font-size:16px; font-weight:700; margin-bottom:1rem; }
+    .download-group { margin-bottom:1rem; }
+    .download-group-label { font-size:11px; font-weight:700; color:var(--text3); text-transform:uppercase; letter-spacing:0.05em; margin-bottom:6px; }
+    .download-row { display:flex; align-items:center; justify-content:space-between; padding:8px 0; border-bottom:0.5px solid var(--border); }
+    .download-row:last-child { border-bottom:none; }
+    .download-row-label { font-size:14px; font-weight:600; }
+    .download-row-label span { font-size:12px; color:var(--text3); font-weight:400; margin-left:6px; }
+    .dl-btn { padding:5px 12px; border-radius:7px; border:1.5px solid var(--border2); background:var(--bg); color:var(--text2); font-size:12px; font-weight:600; cursor:pointer; font-family:var(--font); margin-left:4px; }
+    .dl-btn:hover { border-color:var(--pink); color:var(--pink); }
+    .dl-btn.pdf { border-color:#e74c3c22; color:#e74c3c; }
+    .dl-btn.csv { border-color:#16a34a22; color:#16a34a; }
     .entry-delete { background: #fee2e2; border: none; cursor: pointer; color: #dc2626; font-size: 14px; padding: 4px 8px; margin-left: 4px; border-radius: 6px; }
     .entry-delete:hover { color: var(--pink); }
     .entry-edit { background: var(--pink); border: none; cursor: pointer; color: white; font-size: 14px; padding: 4px 8px; margin-left: 6px; border-radius: 6px; }
@@ -350,8 +365,7 @@
       <h2>All entries</h2>
       <div class="export-row">
         <button class="view-toggle-btn" id="viewToggleBtn" onclick="toggleViewMode()"><i class="ti ti-table" id="viewToggleIcon"></i> <span id="viewToggleLabel">Table</span></button>
-        <button class="export-btn" onclick="exportPDF()"><i class="ti ti-file-type-pdf"></i> PDF</button>
-        <button class="export-btn" onclick="exportCSV()"><i class="ti ti-table-export"></i> CSV</button>
+        <button class="export-btn" onclick="openDownloadModal()"><i class="ti ti-download"></i> Download</button>
       </div>
     </div>
     <div class="filter-row">
@@ -497,6 +511,17 @@
 </div>
 
 <div class="toast" id="toast"></div>
+
+<div id="downloadModal" class="download-modal" onclick="if(event.target===this)closeDownloadModal()">
+  <div class="download-sheet">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+      <h3>⬇️ Download Expenses</h3>
+      <button onclick="closeDownloadModal()" style="background:none;border:none;font-size:20px;cursor:pointer;color:var(--text3);">×</button>
+    </div>
+    <div id="downloadOptions"></div>
+  </div>
+</div>
+
 
 <script>
 
@@ -1033,6 +1058,117 @@
     }
     btn.disabled = false;
     btn.textContent = '↑ Sync all entries to Sheet';
+  }
+
+
+  function openDownloadModal() {
+    // Group entries by month and year
+    const byMonth = {}, byYear = {};
+    entries.forEach(e => {
+      if (!e.date) return;
+      const month = e.date.slice(0, 7); // 2026-06
+      const year = e.date.slice(0, 4);  // 2026
+      if (!byMonth[month]) byMonth[month] = [];
+      if (!byYear[year]) byYear[year] = [];
+      byMonth[month].push(e);
+      byYear[year].push(e);
+    });
+
+    const months = Object.keys(byMonth).sort().reverse();
+    const years = Object.keys(byYear).sort().reverse();
+
+    let html = '';
+
+    // Per Year
+    if (years.length) {
+      html += '<div class="download-group"><div class="download-group-label">By Year</div>';
+      years.forEach(y => {
+        const count = byYear[y].length;
+        html += '<div class="download-row">' +
+          '<div class="download-row-label">' + y + '<span>' + count + ' entries</span></div>' +
+          '<div>' +
+          '<button class="dl-btn csv" onclick="downloadCSV(byYear['' + y + ''],'OHT_Expenses_' + y + '')">CSV</button>' +
+          '<button class="dl-btn pdf" onclick="downloadPDFSet(byYear['' + y + ''],'OHT_Expenses_' + y + '')">PDF</button>' +
+          '</div></div>';
+      });
+      html += '</div>';
+    }
+
+    // Per Month
+    if (months.length) {
+      html += '<div class="download-group"><div class="download-group-label">By Month</div>';
+      months.forEach(m => {
+        const [y, mo] = m.split('-');
+        const label = new Date(y, parseInt(mo)-1).toLocaleDateString('en-PH', {month:'long', year:'numeric'});
+        const count = byMonth[m].length;
+        html += '<div class="download-row">' +
+          '<div class="download-row-label">' + label + '<span>' + count + ' entries</span></div>' +
+          '<div>' +
+          '<button class="dl-btn csv" onclick="downloadCSV(byMonth['' + m + ''],'OHT_Expenses_' + m + '')">CSV</button>' +
+          '<button class="dl-btn pdf" onclick="downloadPDFSet(byMonth['' + m + ''],'OHT_Expenses_' + m + '')">PDF</button>' +
+          '</div></div>';
+      });
+      html += '</div>';
+    }
+
+    // Store refs globally for onclick access
+    window.byMonth = byMonth;
+    window.byYear = byYear;
+
+    document.getElementById('downloadOptions').innerHTML = html;
+    document.getElementById('downloadModal').classList.add('open');
+  }
+
+  function closeDownloadModal() {
+    document.getElementById('downloadModal').classList.remove('open');
+  }
+
+  function downloadCSV(data, filename) {
+    const headers = ['Date','Company','TIN','Address','Amount','Discount','VAT Type','Vatable Sales','VAT Amount','Category','Payment','Owner','Uploader','Notes'];
+    const rows = data.map(e => [
+      e.date||'', e.company||'', e.tin||'', e.address||'',
+      e.amount||0, e.discount||0, e.vatType||'', e.vatableSales||0, e.vatAmount||0,
+      e.category||'', e.payment||'', e.owner||'', e.uploader||'', e.notes||''
+    ].map(v => '"'+String(v).replace(/"/g,'""')+'"').join(','));
+    const csv = [headers.join(','), ...rows].join('\n');
+    const blob = new Blob([csv], {type:'text/csv'});
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = filename + '.csv';
+    a.click();
+  }
+
+  function downloadPDFSet(data, filename) {
+    // Build printable HTML and open in new tab for saving as PDF
+    const rows = data.map(e =>
+      '<tr>' +
+      '<td>' + (e.date||'') + '</td>' +
+      '<td><strong>' + (e.company||'') + '</strong></td>' +
+      '<td>' + (e.category||'') + '</td>' +
+      '<td>' + (e.payment||'') + '</td>' +
+      '<td>' + (e.owner||'') + '</td>' +
+      '<td style="text-align:right">₱' + parseFloat(e.amount||0).toLocaleString('en-PH',{minimumFractionDigits:2}) + '</td>' +
+      '</tr>'
+    ).join('');
+    const total = data.filter(e => e.owner === 'OHT Expense').reduce((s,e) => s + (parseFloat(e.amount)||0), 0);
+    const html = '<!DOCTYPE html><html><head><title>' + filename + '</title>' +
+      '<style>body{font-family:Arial,sans-serif;padding:20px;font-size:12px;}' +
+      'h1{color:#ef4576;font-size:18px;}' +
+      'table{width:100%;border-collapse:collapse;}' +
+      'th{background:#fce7f3;color:#ef4576;text-align:left;padding:8px;border-bottom:2px solid #ef4576;font-size:11px;}' +
+      'td{padding:7px 8px;border-bottom:0.5px solid #eee;}' +
+      '.total{font-weight:700;font-size:14px;color:#ef4576;text-align:right;margin-top:12px;}' +
+      '</style></head><body>' +
+      '<h1>OHT Expense Report</h1>' +
+      '<p style="color:#888;font-size:11px;">Generated ' + new Date().toLocaleDateString('en-PH',{dateStyle:'long'}) + ' · ' + data.length + ' entries</p>' +
+      '<table><thead><tr><th>Date</th><th>Company</th><th>Category</th><th>Payment</th><th>Owner</th><th>Amount</th></tr></thead>' +
+      '<tbody>' + rows + '</tbody></table>' +
+      '<div class="total">OHT Total: ₱' + total.toLocaleString('en-PH',{minimumFractionDigits:2}) + '</div>' +
+      '</body></html>';
+    const w = window.open('', '_blank');
+    w.document.write(html);
+    w.document.close();
+    setTimeout(() => w.print(), 500);
   }
 
   async function attachReceiptToEntry(event, entryId) {
