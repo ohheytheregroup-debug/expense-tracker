@@ -1126,11 +1126,12 @@
   }
 
   function downloadCSV(data, filename) {
-    const headers = ['Date','Company','TIN','Address','Amount','Discount','VAT Type','Vatable Sales','VAT Amount','Category','Payment','Owner','Uploader','Notes'];
+    const headers = ['Date','Category','Notes','Amount','Company','TIN','Address','Discount','VAT Type','Vatable Sales','VAT Amount','Payment','Owner','Uploader'];
     const rows = data.map(e => [
-      e.date||'', e.company||'', e.tin||'', e.address||'',
-      e.amount||0, e.discount||0, e.vatType||'', e.vatableSales||0, e.vatAmount||0,
-      e.category||'', e.payment||'', e.owner||'', e.uploader||'', e.notes||''
+      e.date||'', e.category||'', e.notes||'', e.amount||0,
+      e.company||'', e.tin||'', e.address||'',
+      e.discount||0, e.vatType||'', e.vatableSales||0, e.vatAmount||0,
+      e.payment||'', e.owner||'', e.uploader||''
     ].map(v => '"'+String(v).replace(/"/g,'""')+'"').join(','));
     const csv = [headers.join(','), ...rows].join('\n');
     const blob = new Blob([csv], {type:'text/csv'});
@@ -1145,11 +1146,14 @@
     const rows = data.map(e =>
       '<tr>' +
       '<td>' + (e.date||'') + '</td>' +
-      '<td><strong>' + (e.company||'') + '</strong></td>' +
       '<td>' + (e.category||'') + '</td>' +
+      '<td>' + (e.notes||'') + '</td>' +
+      '<td style="text-align:right">₱' + parseFloat(e.amount||0).toLocaleString('en-PH',{minimumFractionDigits:2}) + '</td>' +
+      '<td><strong>' + (e.company||'') + '</strong></td>' +
+      '<td>' + (e.tin||'') + '</td>' +
+      '<td>' + (e.address||'') + '</td>' +
       '<td>' + (e.payment||'') + '</td>' +
       '<td>' + (e.owner||'') + '</td>' +
-      '<td style="text-align:right">₱' + parseFloat(e.amount||0).toLocaleString('en-PH',{minimumFractionDigits:2}) + '</td>' +
       '</tr>'
     ).join('');
     const total = data.filter(e => e.owner === 'OHT Expense').reduce((s,e) => s + (parseFloat(e.amount)||0), 0);
@@ -1163,7 +1167,7 @@
       '</style></head><body>' +
       '<h1>OHT Expense Report</h1>' +
       '<p style="color:#888;font-size:11px;">Generated ' + new Date().toLocaleDateString('en-PH',{dateStyle:'long'}) + ' · ' + data.length + ' entries</p>' +
-      '<table><thead><tr><th>Date</th><th>Company</th><th>Category</th><th>Payment</th><th>Owner</th><th>Amount</th></tr></thead>' +
+      '<table><thead><tr><th>Date</th><th>Category</th><th>Notes</th><th>Amount</th><th>Company</th><th>TIN</th><th>Address</th><th>Payment</th><th>Owner</th></tr></thead>' +
       '<tbody>' + rows + '</tbody></table>' +
       '<div class="total">OHT Total: ₱' + total.toLocaleString('en-PH',{minimumFractionDigits:2}) + '</div>' +
       '</body></html>';
