@@ -162,6 +162,11 @@
     .dl-btn:hover { border-color:var(--pink); color:var(--pink); }
     .dl-btn.pdf { border-color:#e74c3c22; color:#e74c3c; }
     .dl-btn.csv { border-color:#16a34a22; color:#16a34a; }
+
+    .duplicate-warning { background:#fff7ed; border:1.5px solid #f97316; border-radius:10px; padding:10px 14px; margin-top:10px; font-size:13px; color:#c2410c; display:none; }
+    .duplicate-warning strong { display:block; margin-bottom:4px; }
+    .duplicate-warning .dup-list { font-size:12px; color:#9a3412; margin-top:4px; }
+    .dup-save-anyway { background:none; border:1px solid #f97316; color:#c2410c; border-radius:6px; padding:4px 10px; font-size:12px; cursor:pointer; margin-top:6px; font-family:var(--font); }
     .entry-delete { background: #fee2e2; border: none; cursor: pointer; color: #dc2626; font-size: 14px; padding: 4px 8px; margin-left: 4px; border-radius: 6px; }
     .entry-delete:hover { color: var(--pink); }
     .entry-edit { background: var(--pink); border: none; cursor: pointer; color: white; font-size: 14px; padding: 4px 8px; margin-left: 6px; border-radius: 6px; }
@@ -261,6 +266,11 @@
     </button>
 
     <div id="formSection" style="display:none">
+      <div id="duplicateWarning" class="duplicate-warning">
+        <strong>⚠️ Possible duplicate detected!</strong>
+        <div class="dup-list" id="dupList"></div>
+        <button class="dup-save-anyway" onclick="document.getElementById('duplicateWarning').style.display='none'">Save anyway</button>
+      </div>
       <div class="card">
         <div class="form-grid">
           <div class="form-group full">
@@ -281,7 +291,7 @@
           </div>
           <div class="form-group">
             <label>Total amount (PHP)</label>
-            <input type="text" id="f-amount" placeholder="0.00" oninput="onAmountChange('f')">
+            <input type="text" id="f-amount" placeholder="0.00" oninput="onAmountChange('f');checkForDuplicates(document.getElementById('f-company').value,this.value,document.getElementById('f-date').value)">
           </div>
           <div class="form-group">
             <label>Less: Discount (PHP)</label>
@@ -815,6 +825,7 @@
       document.getElementById('f-amount').value = p.amount || '';
       document.getElementById('f-date').value = p.date || new Date().toISOString().split('T')[0];
       document.getElementById('formSection').style.display = 'block';
+      checkForDuplicates(p.company, p.amount, p.date);
       autoDetectVat(fullText, 'f');
       const detectedDiscount = autoDetectDiscount(fullText);
       if (detectedDiscount > 0) document.getElementById('f-discount').value = detectedDiscount.toFixed(2);
@@ -1279,6 +1290,27 @@
     showToast('Fill in the details manually.');
   }
 
+
+  function checkForDuplicates(company, amount, date) {
+    const warn = document.getElementById('duplicateWarning');
+    const dupList = document.getElementById('dupList');
+    if (!company && !amount) { warn.style.display = 'none'; return; }
+    const matches = entries.filter(e => {
+      const sameCompany = company && e.company && e.company.toLowerCase().includes(company.toLowerCase().substring(0, 6));
+      const sameAmount = amount && parseFloat(e.amount) === parseFloat(amount);
+      const sameDate = date && e.date === date;
+      // Flag if same company+amount, or same company+date, or same amount+date
+      return (sameCompany && sameAmount) || (sameCompany && sameDate && date) || (sameAmount && sameDate && date);
+    });
+    if (matches.length > 0) {
+      warn.style.display = 'block';
+      dupList.innerHTML = matches.slice(0,3).map(e =>
+        '• ' + e.company + ' — ₱' + parseFloat(e.amount).toLocaleString('en-PH',{minimumFractionDigits:2}) + ' on ' + (e.date||'unknown date')
+      ).join('<br>');
+    } else {
+      warn.style.display = 'none';
+    }
+  }
   function saveEntry() {
     if (!currentUser) { showToast('Please sign in first.'); return; }
     const company = document.getElementById('f-company').value.trim();
