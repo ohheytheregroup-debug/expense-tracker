@@ -167,6 +167,9 @@
     .duplicate-warning strong { display:block; margin-bottom:4px; }
     .duplicate-warning .dup-list { font-size:12px; color:#9a3412; margin-top:4px; }
     .dup-save-anyway { background:none; border:1px solid #f97316; color:#c2410c; border-radius:6px; padding:4px 10px; font-size:12px; cursor:pointer; margin-top:6px; font-family:var(--font); }
+
+    .db-status-banner { display:none; position:fixed; top:0; left:0; right:0; z-index:9998; background:#dc2626; color:white; padding:10px 16px; font-size:13px; font-weight:600; text-align:center; }
+    .db-status-banner a { color:white; text-decoration:underline; cursor:pointer; }
     .entry-delete { background: #fee2e2; border: none; cursor: pointer; color: #dc2626; font-size: 14px; padding: 4px 8px; margin-left: 4px; border-radius: 6px; }
     .entry-delete:hover { color: var(--pink); }
     .entry-edit { background: var(--pink); border: none; cursor: pointer; color: white; font-size: 14px; padding: 4px 8px; margin-left: 6px; border-radius: 6px; }
@@ -222,6 +225,7 @@
   </div>
 </div>
 
+<div id="dbStatusBanner" class="db-status-banner">⚠️ Database offline — entries are NOT being saved. Scanning is disabled. <a onclick="checkDbConnection()">Retry</a></div>
 <div id="loggedInBar" class="logged-in-bar" style="display:none;">
   <span id="loggedInName">👤 </span>
   <button onclick="doLogout()" style="background:none;border:none;color:var(--pink);font-size:12px;font-weight:600;cursor:pointer;font-family:var(--font);">Sign out</button>
@@ -1291,6 +1295,39 @@
   }
 
 
+
+  let dbOnline = true;
+
+  async function checkDbConnection() {
+    try {
+      const r = await fetch('/api/claude', {
+        method: 'POST',
+        headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ action: 'ping' })
+      });
+      const d = await r.json();
+      if (d.success) {
+        dbOnline = true;
+        document.getElementById('dbStatusBanner').style.display = 'none';
+        document.getElementById('scanBtn').disabled = false;
+        document.getElementById('manualBtn').disabled = false;
+        showToast('✅ Database connected!');
+      } else {
+        setDbOffline();
+      }
+    } catch(e) {
+      setDbOffline();
+    }
+  }
+
+  function setDbOffline() {
+    dbOnline = false;
+    document.getElementById('dbStatusBanner').style.display = 'block';
+    document.getElementById('scanBtn').disabled = true;
+    document.getElementById('manualBtn').disabled = true;
+    showToast('⚠️ Database offline — scanning disabled.');
+  }
+
   function checkForDuplicates(company, amount, date) {
     const warn = document.getElementById('duplicateWarning');
     const dupList = document.getElementById('dupList');
@@ -1313,6 +1350,7 @@
   }
   function saveEntry() {
     if (!currentUser) { showToast('Please sign in first.'); return; }
+    if (!dbOnline) { showToast('⚠️ Database offline — entry not saved!'); return; }
     const company = document.getElementById('f-company').value.trim();
     const amount = parseFloat(document.getElementById('f-amount').value) || 0;
     if (!company) { showToast('Please enter a company name.'); return; }
@@ -1617,6 +1655,8 @@
   }
   initAccounts();
   renderAccountsList();
+  checkDbConnection();
+  setInterval(checkDbConnection, 60000);
   (function startApp() {
     try {
       var sess = JSON.parse(localStorage.getItem('oht_session') || 'null');
