@@ -197,6 +197,18 @@ export default async function handler(req, res) {
       } catch(err) { return res.status(200).json({ success: false, detail: err.message }); }
     }
 
+    if (body.action === 'ping') {
+      // Simple DB connectivity check
+      try {
+        const r = await fetch(`${SUPABASE_URL}/rest/v1/expenses?limit=1`, {
+          headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
+        });
+        return res.status(200).json({ success: r.ok, status: r.status });
+      } catch(e) {
+        return res.status(200).json({ success: false, detail: e.message });
+      }
+    }
+
     if (body.action === 'load') {
       const r = await fetch(`${SUPABASE_URL}/rest/v1/expenses?order=id.desc&limit=1000`, {
         headers: { 'apikey': SUPABASE_KEY, 'Authorization': `Bearer ${SUPABASE_KEY}` }
